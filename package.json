@@ -1,0 +1,32 @@
+{
+    "name": "discordjs-v14-template",
+    "version": "1.0.11",
+    "description": "Simple Discord.js v14 template (TypeScript)",
+    "main": "./dist/index.js",
+    "scripts": {
+        "lint": "eslint . --ext .ts",
+        "fix": "eslint . --ext .ts --fix",
+        "start": "tsc && node ."
+    },
+    "keywords": [
+        "discord",
+        "discord.js",
+        "bot",
+        "template",
+        "typescript"
+    ],
+    "author": "ankitdey01",
+    "license": "ISC",
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "axios": "^1.6.0",
+        "chalk": "^4.1.2",
+        "discord.js": "^14.25.1",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.6",
+        "typescript": "^5.3.3"
+    }
+}
