@@ -11,4 +11,7 @@ const client = new CustomClient({
 
 export default client;
 
-client.start();
+client.start().catch((error) => {
+    console.error("Failed to start client:", error);
+    process.exit(1);
+});

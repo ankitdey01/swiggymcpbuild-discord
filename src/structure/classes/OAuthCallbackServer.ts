@@ -104,7 +104,7 @@ export class OAuthCallbackServer {
         });
 
         // Health check
-        this.app.get("/health", (req: Request, res: Response) => {
+        this.app.get("/health", (_req: Request, res: Response) => {
             res.status(200).json({ status: "ok" });
         });
     }

@@ -1,16 +1,13 @@
 # Swiggy MCP Discord Bot
 
-A Discord bot that integrates Swiggy services (Food delivery, Instamart, Dineout) using the Swiggy Model Context Protocol (MCP). Built with Discord.js v14, TypeScript, and OAuth 2.1 PKCE authentication.
+A Discord bot that integrates Swiggy Instamart using the Swiggy Model Context Protocol (MCP). Built with Discord.js v14, TypeScript, and OAuth 2.1 PKCE authentication.
 
 ## Overview
 
 **Swiggy MCP Discord Bot** brings Swiggy's capabilities directly into Discord. Users can:
 
 - 🔐 Securely authenticate with their Swiggy account via OAuth 2.1
-- 🍔 Browse and order food delivery
-- 🛒 Shop for essentials on Instamart
-- 🍽️ Make reservations at partner restaurants via Dineout
-- 🤖 Get AI-powered assistance for all queries
+- Shop for essentials on Instamart
 
 The bot uses the Swiggy MCP to access real-time data and perform actions, making Swiggy services seamlessly available within Discord.
 
@@ -459,18 +456,12 @@ node .
 - ✅ Authentication commands (`/login`, `/logout`, `/authstatus`)
 - ✅ Token expiry validation
 
-### Phase 2: Swiggy MCP Integration (Next)
-- ⏳ Food delivery commands
-  - `/order` - Browse and order food
-  - `/track` - Track active orders
-  - `/delivery` - View delivery options
-- ⏳ Instamart integration
-  - `/shop` - Browse products
-  - `/groceries` - Quick grocery ordering
-- ⏳ Dineout integration
-  - `/restaurants` - Search restaurants
-  - `/reserve` - Make reservations
-  - `/reviews` - Get restaurant reviews
+### Phase 2: Swiggy MCP Integration
+- Instamart cart commands
+  - `/instamart cart show` - Show your Instamart cart
+  - `/instamart cart clear` - Clear your Instamart cart
+- Instamart MCP tool runner
+  - `/swiggyit` - Execute documented Instamart MCP tools
 
 ### Phase 3: Advanced Features (Future)
 - ⏳ Automatic token refresh using refresh tokens

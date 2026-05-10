@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
 import { CustomClient, SlashCommand } from "../../structure/index.js";
 
 export default new SlashCommand({
@@ -18,7 +18,7 @@ export default new SlashCommand({
                         .setTitle("❌ Auth Not Configured")
                         .setDescription("Swiggy authentication is not yet configured."),
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -37,14 +37,24 @@ export default new SlashCommand({
                             inline: false
                         })
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         const expiry = client.swiggyAuth.getTokenExpiry(interaction.user.id);
-        const daysLeft = Math.floor(expiry! / 86400);
-        const hoursLeft = Math.floor((expiry! % 86400) / 3600);
-
+        if (!expiry) {
+            return interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Red")
+                        .setTitle("❌ Error")
+                        .setDescription("Unable to retrieve token expiry information."),
+                ],
+                flags: MessageFlags.Ephemeral
+            });
+        }
+        const daysLeft = Math.floor(expiry / 86400);
+        const hoursLeft = Math.floor((expiry % 86400) / 3600);
         return interaction.reply({
             embeds: [
                 new EmbedBuilder()
@@ -73,7 +83,7 @@ export default new SlashCommand({
                     })
                     .setFooter({ text: "Token will auto-refresh when needed" })
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 });

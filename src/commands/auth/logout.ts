@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags, ComponentType, ButtonStyle } from "discord.js";
 import { CustomClient, SlashCommand } from "../../structure/index.js";
 
 export default new SlashCommand({
@@ -18,7 +18,7 @@ export default new SlashCommand({
                         .setTitle("❌ Auth Not Configured")
                         .setDescription("Swiggy authentication is not yet configured."),
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -36,7 +36,7 @@ export default new SlashCommand({
                             inline: false
                         })
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
@@ -56,17 +56,24 @@ export default new SlashCommand({
                             inline: false
                         })
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         } catch (error: any) {
+            const errorMessage = error?.message || "Unknown error";
+            const errorStack = error?.stack || "";
+            client.logger.error(
+                "AUTH",
+                `Logout failed for user ${interaction.user.id}: ${errorMessage}\n${errorStack}`
+            );
+
             return interaction.reply({
                 embeds: [
                     new EmbedBuilder()
                         .setColor("Red")
                         .setTitle("❌ Logout Failed")
-                        .setDescription(`Failed to logout: ${error.message}`)
+                        .setDescription("An error occurred while logging out. Please try again later.")
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
     }

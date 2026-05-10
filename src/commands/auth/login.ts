@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags, ComponentType, ButtonStyle } from "discord.js";
 import { CustomClient, SlashCommand } from "../../structure/index.js";
 
 export default new SlashCommand({
@@ -18,14 +18,19 @@ export default new SlashCommand({
                         .setTitle("❌ Auth Not Configured")
                         .setDescription("Swiggy authentication is not yet configured. Please check with the bot administrator.")
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         // Check if user is already authenticated
         if (client.swiggyAuth.isAuthenticated(interaction.user.id)) {
             const expiry = client.swiggyAuth.getTokenExpiry(interaction.user.id);
-            const daysLeft = Math.floor(expiry! / 86400);
+
+            let expiryText = "unknown";
+            if (expiry != null && typeof expiry === "number" && Number.isFinite(expiry) && expiry > 0) {
+                const daysLeft = Math.floor(expiry / 86400);
+                expiryText = daysLeft === 0 ? "<1 day" : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
+            }
 
             return interaction.reply({
                 embeds: [
@@ -35,7 +40,7 @@ export default new SlashCommand({
                         .setDescription(`You're already logged in to Swiggy.`)
                         .addFields({
                             name: "Token Expires In",
-                            value: `${daysLeft} days`,
+                            value: expiryText,
                             inline: false
                         })
                         .addFields({
@@ -44,12 +49,23 @@ export default new SlashCommand({
                             inline: false
                         })
                 ],
-                ephemeral: true
+                flags: MessageFlags.Ephemeral
             });
         }
 
         // Generate authorization URL
         const authUrl = client.swiggyAuth.getAuthorizationUrl(interaction.user.id);
+        if (!authUrl) {
+            return interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Red")
+                        .setTitle("❌ Error")
+                        .setDescription("Failed to generate authentication URL. Please try again later.")
+                ],
+                flags: MessageFlags.Ephemeral
+            });
+        }
 
         return interaction.reply({
             embeds: [
@@ -73,18 +89,18 @@ export default new SlashCommand({
             ],
             components: [
                 {
-                    type: 1,
+                    type: ComponentType.ActionRow,
                     components: [
                         {
-                            type: 2,
-                            style: 5,
+                            type: ComponentType.Button,
+                            style: ButtonStyle.Link,
                             label: "Login with Swiggy",
                             url: authUrl
                         }
                     ]
                 }
             ],
-            ephemeral: true
+            flags: MessageFlags.Ephemeral
         });
     }
 });

@@ -8,7 +8,7 @@ export default new Event({
         client.logger.debug("System", `${client.user?.tag} is now online!`);
         
         client.user?.setActivity({
-            name: "discord.js v14 template",
+            name: "Instamart",
             type: ActivityType.Playing
         });
     }
