@@ -278,12 +278,12 @@ async function handleAddressAddModal(interaction: ModalSubmitInteraction, client
           .addFields(
             {
               name: "Tool Call Arguments",
-              value: `\`\`\`json\n${JSON.stringify(args, null, 2)?.replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
+              value: `\`\`\`json\n${JSON.stringify(args, null, 2).replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
               inline: false,
             },
             {
               name: "Tool Output",
-              value: `\`\`\`json\n${JSON.stringify(result, null, 2)?.replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
+              value: `\`\`\`json\n${JSON.stringify(result, null, 2).replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
               inline: false,
             }
           )
@@ -343,7 +343,7 @@ async function handleAddressRemoveModal(interaction: ModalSubmitInteraction, cli
           .setColor(0xff5200)
           .setAuthor({ name: "Swiggy Instamart" })
           .setTitle("Address Removed")
-          .setDescription(`Deleted address ID \`${addressId.replace(/`/g, "'")}\\.`)
+          .setDescription(`Deleted address ID \`${addressId.replace(/`/g, "'")}\`.`)
           .setTimestamp(),
       ],
     });

@@ -99,7 +99,7 @@ export function sanitizeSwiggyToolArguments(args: Record<string, unknown>): Reco
 }
 
 export function normalizeSwiggyOrderCount(count: number | null | undefined, fallback = 20, max = 20): number {
-  const safeCount = Number.isFinite(count) && count ? Math.trunc(count) : fallback;
+  const safeCount = Number.isFinite(count) ? Math.trunc(count as number) : fallback;
   return Math.max(1, Math.min(max, safeCount));
 }
 

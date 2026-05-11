@@ -9,12 +9,11 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
     }
     await interaction.deferReply();
 
-    const previousPage = "First Page";
+    const previousPage = "Previous Page";
     const nextPage = "Next Page";
     const closePage = "Close";
-    const firstPage = "Previous Page";
+    const firstPage = "First Page";
     const lastPage = "Last Page";
-
     const buttons = [
         new ButtonBuilder()
             .setCustomId("pagination-firstPage")
@@ -132,7 +131,7 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
         const newRow = new ActionRowBuilder<ButtonBuilder>().setComponents(buttons);
 
         await i.deferUpdate();
-        message.edit({ embeds: [embeds[currentPage]], components: [newRow] });
+        await message.edit({ embeds: [embeds[currentPage]], components: [newRow] });
     });
 
     collector.on("end", async () => {

@@ -280,7 +280,7 @@ function formatOrderLine(order: any, index: number): string {
   return [
     `**${index + 1}. Order ${escapeMarkdown(orderId)}**`,
     tags.length ? tags.join(" ") : null,
-    items ? escapeMarkdown(items).slice(0, 500) : null,
+    items ? items.slice(0, 500) : null,
     address ? `_${escapeMarkdown(address).slice(0, 180)}_` : null,
   ]
     .filter(Boolean)
@@ -504,6 +504,8 @@ export default new SlashCommand({
               return interaction.editReply("Your Instamart cart has been cleared.");
             }
             break;
+          default:
+            return interaction.editReply(`Unknown subcommand group: ${subcommandGroup || 'none'}`);
         }
       }
 
