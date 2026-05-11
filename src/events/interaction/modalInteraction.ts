@@ -1,4 +1,4 @@
-import { Events, ModalSubmitInteraction } from "discord.js";
+import { Events, ModalSubmitInteraction, EmbedBuilder } from "discord.js";
 import { CustomClient, Event } from "../../structure/index.js";
 import { classifySwiggyError } from "../../utils/swiggyErrors.js";
 import { getSwiggyAccessToken } from "../../utils/swiggyMcp.js";
@@ -171,16 +171,7 @@ async function deleteInstamartAddress(accessToken: string, addressId: string) {
   return result;
 }
 
-function buildInstamartAddressResultEmbed(title: string, description: string, color = 0xff5200, fields: any[] = []) {
-  return {
-    color,
-    author: { name: "Swiggy Instamart" },
-    title,
-    description: description.slice(0, 4000),
-    fields,
-    timestamp: new Date().toISOString(),
-  };
-}
+
 
 function splitRequired(value: string, expected: number, label: string): string[] {
   const parts = value.split("|").map((part) => part.trim());
@@ -203,9 +194,7 @@ function buildFullAddress(input: Omit<InstamartAddressInput, "fullAddress">): st
     .join(", ");
 }
 
-function stringifyForEmbed(value: unknown): string {
-  return JSON.stringify(value, null, 2)?.replace(/`/g, "'").slice(0, 1000) || "Not returned";
-}
+
 
 function parseAddressAddModal(fields: ModalSubmitInteraction["fields"]) {
   const [addressLine, addressLine2] = splitRequired(
@@ -281,28 +270,36 @@ async function handleAddressAddModal(interaction: ModalSubmitInteraction, client
 
     return interaction.editReply({
       embeds: [
-        buildInstamartAddressResultEmbed(
-          "Address Added",
-          `Created \`${input.addressCategory}\` address for ${input.city}.`,
-          0xff5200,
-          [
+        new EmbedBuilder()
+          .setColor(0xff5200)
+          .setAuthor({ name: "Swiggy Instamart" })
+          .setTitle("Address Added")
+          .setDescription(`Created \`${input.addressCategory}\` address for ${input.city}.`)
+          .addFields(
             {
               name: "Tool Call Arguments",
-              value: `\`\`\`json\n${stringifyForEmbed(args)}\n\`\`\``,
+              value: `\`\`\`json\n${JSON.stringify(args, null, 2)?.replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
               inline: false,
             },
             {
               name: "Tool Output",
-              value: `\`\`\`json\n${stringifyForEmbed(result)}\n\`\`\``,
+              value: `\`\`\`json\n${JSON.stringify(result, null, 2)?.replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
               inline: false,
-            },
-          ]
-        ),
+            }
+          )
+          .setTimestamp(),
       ],
     });
   } catch (error) {
     return interaction.editReply({
-      embeds: [buildInstamartAddressResultEmbed("Could Not Add Address", userFacingError(error), 0xd83c3e)],
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xd83c3e)
+          .setAuthor({ name: "Swiggy Instamart" })
+          .setTitle("Could Not Add Address")
+          .setDescription(userFacingError(error))
+          .setTimestamp(),
+      ],
     });
   }
 }
@@ -328,11 +325,12 @@ async function handleAddressRemoveModal(interaction: ModalSubmitInteraction, cli
     if (knownAddressIds.length && !knownAddressIds.includes(addressId)) {
       return interaction.editReply({
         embeds: [
-          buildInstamartAddressResultEmbed(
-            "Address Not Found",
-            "No saved address matched that ID. Run `/instamart address` and paste the ID shown on the address you want to remove.",
-            0xd83c3e
-          ),
+          new EmbedBuilder()
+            .setColor(0xd83c3e)
+            .setAuthor({ name: "Swiggy Instamart" })
+            .setTitle("Address Not Found")
+            .setDescription("No saved address matched that ID. Run `/instamart address` and paste the ID shown on the address you want to remove.")
+            .setTimestamp(),
         ],
       });
     }
@@ -341,15 +339,24 @@ async function handleAddressRemoveModal(interaction: ModalSubmitInteraction, cli
 
     return interaction.editReply({
       embeds: [
-        buildInstamartAddressResultEmbed(
-          "Address Removed",
-          `Deleted address ID \`${addressId.replace(/`/g, "'")}\`.`
-        ),
+        new EmbedBuilder()
+          .setColor(0xff5200)
+          .setAuthor({ name: "Swiggy Instamart" })
+          .setTitle("Address Removed")
+          .setDescription(`Deleted address ID \`${addressId.replace(/`/g, "'")}\\.`)
+          .setTimestamp(),
       ],
     });
   } catch (error) {
     return interaction.editReply({
-      embeds: [buildInstamartAddressResultEmbed("Could Not Remove Address", userFacingError(error), 0xd83c3e)],
+      embeds: [
+        new EmbedBuilder()
+          .setColor(0xd83c3e)
+          .setAuthor({ name: "Swiggy Instamart" })
+          .setTitle("Could Not Remove Address")
+          .setDescription(userFacingError(error))
+          .setTimestamp(),
+      ],
     });
   }
 }

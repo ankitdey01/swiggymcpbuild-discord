@@ -4,36 +4,39 @@ import { reply } from "./index.js";
 type ValidInteraction = ChatInputCommandInteraction | ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction
 
 export async function paginate(interaction: ValidInteraction, embeds: EmbedBuilder[]) {
+    if (embeds.length === 0) {
+        throw new Error("Embeds array cannot be empty");
+    }
     await interaction.deferReply();
 
-    const previousPage = "🔙";
-    const nextPage = "🔜";
-    const closePage = "❌";
-    const firstPage = "⏪";
-    const lastPage = "⏩";
+    const previousPage = "First Page";
+    const nextPage = "Next Page";
+    const closePage = "Close";
+    const firstPage = "Previous Page";
+    const lastPage = "Last Page";
 
     const buttons = [
         new ButtonBuilder()
             .setCustomId("pagination-firstPage")
-            .setEmoji(firstPage)
+            .setLabel(firstPage)
             .setStyle(ButtonStyle.Primary)
             .setDisabled(true),
         new ButtonBuilder()
             .setCustomId("pagination-previousPage")
-            .setEmoji(previousPage)
+            .setLabel(previousPage)
             .setStyle(ButtonStyle.Primary)
             .setDisabled(true),
         new ButtonBuilder()
             .setCustomId("pagination-closePage")
-            .setEmoji(closePage)
+            .setLabel(closePage)
             .setStyle(ButtonStyle.Danger),
         new ButtonBuilder()
             .setCustomId("pagination-nextPage")
-            .setEmoji(nextPage)
+            .setLabel(nextPage)
             .setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
             .setCustomId("pagination-lastPage")
-            .setEmoji(lastPage)
+            .setLabel(lastPage)
             .setStyle(ButtonStyle.Primary)
     ];
 
@@ -52,8 +55,8 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
 
     const collector = message.createMessageComponentCollector({ componentType: ComponentType.Button, time: 60 * 1000 * 5 });
 
-    collector.on("collect", (i) => {
-        if (i.user.id !== interaction.user.id) return reply(i, "❌", "This is not your message");
+    collector.on("collect", async (i) => {
+        if (i.user.id !== interaction.user.id) return await reply(i, "❌", "This is not your message");
 
         switch (i.customId) {
             case "pagination-firstPage": {
@@ -74,8 +77,8 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
                 buttons[4].setDisabled(true);
                 
                 const closedRow = new ActionRowBuilder<ButtonBuilder>().setComponents(buttons);
-                i.deferUpdate();
-                message.edit({ components: [closedRow] });
+                await i.deferUpdate();
+                await message.edit({ components: [closedRow] });
                 collector.stop();
                 return;
             }
@@ -128,11 +131,11 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
 
         const newRow = new ActionRowBuilder<ButtonBuilder>().setComponents(buttons);
 
-        i.deferUpdate();
+        await i.deferUpdate();
         message.edit({ embeds: [embeds[currentPage]], components: [newRow] });
     });
 
-    collector.on("end", () => {
+    collector.on("end", async () => {
 
         buttons[0].setDisabled(true);
         buttons[1].setDisabled(true);
@@ -141,6 +144,6 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
         buttons[4].setDisabled(true);
 
         const endRow = new ActionRowBuilder<ButtonBuilder>().setComponents(buttons)
-        message.edit({ components: [endRow] });
+        await message.edit({ components: [endRow] });
     });
 }

@@ -18,6 +18,12 @@ type InstamartToolName =
   | "your_go_to_items";
 
 export type SwiggyToolArguments = Record<string, unknown>;
+export type GetInstamartOrdersArguments = {
+  count?: number;
+  orderType?: string;
+  activeOnly?: boolean;
+};
+
 type SwiggyToolNameByServer = {
   instamart: InstamartToolName;
 };
@@ -89,5 +95,9 @@ export const swiggyTools = {
       callSwiggyTool("instamart", accessToken, "delete_address", args),
     getAddresses: (accessToken: string) => callSwiggyTool("instamart", accessToken, "get_addresses"),
     getCart: (accessToken: string) => callSwiggyTool("instamart", accessToken, "get_cart"),
+    getOrders: (accessToken: string, args: GetInstamartOrdersArguments = {}) =>
+      callSwiggyTool("instamart", accessToken, "get_orders", args),
+    yourGoToItems: (accessToken: string, args: { addressId: string }) =>
+      callSwiggyTool("instamart", accessToken, "your_go_to_items", args),
   },
 } as const;

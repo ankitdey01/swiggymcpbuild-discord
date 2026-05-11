@@ -66,13 +66,14 @@ export async function callSwiggyTool(
   name: string,
   args: Record<string, unknown> = {}
 ) {
+  const toolArguments = sanitizeSwiggyToolArguments(args);
   const result = await withSwiggyMcpClient(
     server,
     accessToken,
     (client) =>
       client.callTool({
         name,
-        arguments: args,
+        arguments: toolArguments,
       }),
     `swiggy-${server}-discord-bot`
   );
@@ -82,7 +83,7 @@ export async function callSwiggyTool(
     `[Swiggy MCP] ${server}.${name}`,
     JSON.stringify(
       {
-        arguments: args,
+        arguments: toolArguments,
         output,
       },
       null,
@@ -91,6 +92,15 @@ export async function callSwiggyTool(
   );
 
   return output;
+}
+
+export function sanitizeSwiggyToolArguments(args: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
+}
+
+export function normalizeSwiggyOrderCount(count: number | null | undefined, fallback = 20, max = 20): number {
+  const safeCount = Number.isFinite(count) && count ? Math.trunc(count) : fallback;
+  return Math.max(1, Math.min(max, safeCount));
 }
 
 export function unwrapMcpToolData(result: McpToolResult): unknown {
