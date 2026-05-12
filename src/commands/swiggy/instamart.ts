@@ -14,7 +14,7 @@ import {
   clearInstamartCart,
   getInstamartCart,
 } from "../../utils/instamartCart.js";
-import { swiggyTools } from "../../utils/swiggyTools.js";
+import { callSwiggyCommerceTool, swiggyTools } from "../../utils/swiggyTools.js";
 
 const ADD_BUTTON_ID = "instamart-address-add";
 const REMOVE_BUTTON_ID = "instamart-address-remove";
@@ -223,6 +223,27 @@ function extractMostOrderedItems(payload: any): any[] {
   });
 }
 
+function extractSearchProducts(payload: any): any[] {
+  const data = dataOf(payload);
+  const direct =
+    (Array.isArray(data?.products) && data.products) ||
+    (Array.isArray(data?.items) && data.items) ||
+    (Array.isArray(data?.data) && data.data) ||
+    (Array.isArray(data) && data);
+
+  const products = Array.isArray(direct) ? direct.filter(itemLooksLikeRecord) : firstArray(data, itemLooksLikeRecord);
+  const seen = new Set<string>();
+
+  return products.filter((product, index) => {
+    const key =
+      text(product, ["productId", "parentProductId", "spinId", "itemId", "skuId", "id"]) ||
+      `${text(product, ["displayName", "productName", "itemName", "name", "title"]) || "product"}:${index}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 async function getInstamartAddresses(accessToken: string) {
   const result = await swiggyTools.instamart.getAddresses(accessToken);
   assertToolSuccess(result, "get_addresses");
@@ -392,6 +413,99 @@ function buildMostOrderedEmbeds(items: any[], addressId: string): EmbedBuilder[]
   return pages;
 }
 
+function rupee(value: any): string | null {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  const raw = String(value).trim();
+  return raw ? `Rs ${raw}` : null;
+}
+
+function productImageUrl(product: any): string | null {
+  const direct = text(product, ["imageUrl", "image", "imageId", "image_url"]);
+  if (direct?.startsWith("http")) return direct;
+
+  const variations = Array.isArray(product?.variations) ? product.variations : [];
+  for (const variation of variations) {
+    const imageUrl = text(variation, ["imageUrl", "image", "imageId", "image_url"]);
+    if (imageUrl?.startsWith("http")) return imageUrl;
+  }
+
+  return null;
+}
+
+function formatVariationLine(variation: any, index: number): string {
+  const spinId = text(variation, ["spinId", "id", "skuId", "itemId"]) || "Not returned";
+  const quantity = text(variation, ["quantityDescription", "quantity", "packSize", "size"]) || "Not returned";
+  const discountedPrice = rupee(variation?.price?.offerPrice ?? variation?.discountedPrice ?? variation?.offerPrice);
+  const mrp = rupee(variation?.price?.mrp ?? variation?.mrp);
+  const inStock = variation?.isInStockAndAvailable ?? variation?.inStock ?? variation?.isAvail;
+  const priceLine =
+    discountedPrice && mrp && discountedPrice !== mrp
+      ? `Discounted Price: ${discountedPrice} | MRP: ${mrp}`
+      : `Discounted Price: ${discountedPrice || mrp || "Not returned"}`;
+
+  return [
+    `**Variant ${index + 1}: ${escapeMarkdown(quantity).slice(0, 80)}**`,
+    `Product ID: \`${escapeInline(spinId)}\``,
+    priceLine,
+    typeof inStock === "boolean" ? `Available: ${inStock ? "Yes" : "No"}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildInstamartSearchEmbeds(products: any[], addressId: string, productQuery: string, nextOffset?: string): EmbedBuilder[] {
+  if (!products.length) {
+    return [
+      new EmbedBuilder()
+        .setColor(0xff5200)
+        .setAuthor({ name: "Swiggy Instamart" })
+        .setTitle("Product Search")
+        .setDescription(`No products were returned for \`${escapeInline(productQuery)}\` at address \`${escapeInline(addressId)}\`.`)
+        .setTimestamp(),
+    ];
+  }
+
+  const pageCount = products.length;
+
+  return products.map((product, index) => {
+    const name = text(product, ["displayName", "productName", "itemName", "name", "title"]) || "Unnamed product";
+    const brand = text(product, ["brand", "brandName"]) || "Not returned";
+    const productId = text(product, ["productId", "id"]) || "Not returned";
+    const parentProductId = text(product, ["parentProductId"]) || "Not returned";
+    const inStock = product?.inStock ?? product?.isAvail;
+    const promoted = product?.isPromoted;
+    const variations = Array.isArray(product?.variations) ? product.variations : [];
+    const description = [
+      `Brand: ${escapeMarkdown(brand).slice(0, 120)}`,
+      `Product ID: \`${escapeInline(productId)}\``,
+      `Parent Product ID: \`${escapeInline(parentProductId)}\``,
+      typeof inStock === "boolean" ? `Available: ${inStock ? "Yes" : "No"}` : null,
+      typeof promoted === "boolean" ? `Featured/Sponsored: ${promoted ? "Yes" : "No"}` : null,
+      variations.length ? `\n${variations.map(formatVariationLine).join("\n\n")}` : "\nNo variants were returned.",
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 4000);
+
+    const embed = new EmbedBuilder()
+      .setColor(0xff5200)
+      .setAuthor({ name: "Swiggy Instamart" })
+      .setTitle(escapeMarkdown(name).slice(0, 250))
+      .setDescription(description)
+      .setFooter({
+        text: `Page ${index + 1}/${pageCount} | ${products.length} product(s) | Address ${addressId}${
+          nextOffset ? ` | Next offset ${nextOffset}` : ""
+        }`,
+      })
+      .setTimestamp();
+
+    const imageUrl = productImageUrl(product);
+    if (imageUrl) embed.setImage(imageUrl);
+
+    return embed;
+  });
+}
+
 function buildInstamartAddressEmbed(addressPayload: any): EmbedBuilder {
   const data = dataOf(addressPayload);
   const addresses = extractAddresses(addressPayload);
@@ -477,6 +591,23 @@ export default new SlashCommand({
             .setDescription("Address ID from /instamart address")
             .setRequired(true)
         )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("search")
+        .setDescription("Search Instamart products for a saved address")
+        .addStringOption((option) =>
+          option
+            .setName("address-id")
+            .setDescription("Address ID from /instamart address")
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName("product")
+            .setDescription("Product name, category, or brand to search")
+            .setRequired(true)
+        )
     ),
   category: "Swiggy",
 
@@ -553,6 +684,31 @@ export default new SlashCommand({
 
         const items = extractMostOrderedItems(result);
         const embeds = buildMostOrderedEmbeds(items, addressId);
+        return paginate(
+          {
+            ...interaction,
+            user: interaction.user,
+            deferReply: async () => undefined,
+            editReply: interaction.editReply.bind(interaction),
+          } as any,
+          embeds
+        );
+      }
+
+      else if (subcommand === "search") {
+        await interaction.deferReply();
+
+        const addressId = interaction.options.getString("address-id", true).trim();
+        const product = interaction.options.getString("product", true).trim();
+        const result = await callSwiggyCommerceTool(accessToken, "instamart", "search_products", {
+          addressId,
+          query: product,
+        });
+        assertToolSuccess(result, "search_products");
+
+        const products = extractSearchProducts(result);
+        const nextOffset = text(dataOf(result), ["nextOffset"]);
+        const embeds = buildInstamartSearchEmbeds(products, addressId, product, nextOffset || undefined);
         return paginate(
           {
             ...interaction,

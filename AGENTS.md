@@ -12,3 +12,5 @@ fetch the authoritative docs:
 Use `/docs/reference/instamart` for tool schemas and
 `/docs/operate/errors` for the canonical error taxonomy. Do not invent
 tool names or parameters.
+
+When code creation requires MCP tools, run `dist/test.js` with the tool name and arguments (if arguments are not provided, request them from the user). Then use the resulting output as context for the output structure.
