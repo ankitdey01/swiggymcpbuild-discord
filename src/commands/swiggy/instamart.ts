@@ -13,6 +13,7 @@ import {
   buildInstamartCartEmbed,
   clearInstamartCart,
   getInstamartCart,
+  getExtractedInstamartCartItems,
 } from "../../utils/instamartCart.js";
 import { callSwiggyCommerceTool, swiggyTools } from "../../utils/swiggyTools.js";
 
@@ -379,38 +380,7 @@ function formatMostOrderedItemLine(item: any, index: number): string {
 }
 
 function buildMostOrderedEmbeds(items: any[], addressId: string): EmbedBuilder[] {
-  if (!items.length) {
-    return [
-      new EmbedBuilder()
-        .setColor(0xff5200)
-        .setAuthor({ name: "Swiggy Instamart" })
-        .setTitle("Most Ordered Items")
-        .setDescription(`No go-to items were returned for address \`${escapeInline(addressId)}\`.`)
-        .setTimestamp(),
-    ];
-  }
-
-  const pages: EmbedBuilder[] = [];
-
-  for (let start = 0; start < items.length; start += ITEMS_PER_PAGE) {
-    const pageItems = items.slice(start, start + ITEMS_PER_PAGE);
-    const pageNumber = pages.length + 1;
-    const pageCount = Math.ceil(items.length / ITEMS_PER_PAGE);
-
-    pages.push(
-      new EmbedBuilder()
-        .setColor(0xff5200)
-        .setAuthor({ name: "Swiggy Instamart" })
-        .setTitle("Most Ordered Items")
-        .setDescription(
-          pageItems.map((item, offset) => formatMostOrderedItemLine(item, start + offset)).join("\n\n").slice(0, 4000)
-        )
-        .setFooter({ text: `Address ${addressId} | Page ${pageNumber}/${pageCount} | ${items.length} item(s)` })
-        .setTimestamp()
-    );
-  }
-
-  return pages;
+  return buildInstamartSearchEmbeds(items, addressId, "most ordered items", undefined, "Most Ordered Items");
 }
 
 function rupee(value: any): string | null {
@@ -453,14 +423,25 @@ function formatVariationLine(variation: any, index: number): string {
     .join("\n");
 }
 
-function buildInstamartSearchEmbeds(products: any[], addressId: string, productQuery: string, nextOffset?: string): EmbedBuilder[] {
+function buildInstamartSearchEmbeds(
+  products: any[],
+  addressId: string,
+  productQuery: string,
+  nextOffset?: string,
+  emptyTitle = "Product Search"
+): EmbedBuilder[] {
   if (!products.length) {
+    const description =
+      emptyTitle === "Most Ordered Items"
+        ? `No go-to items were returned for address \`${escapeInline(addressId)}\`.`
+        : `No products were returned for \`${escapeInline(productQuery)}\` at address \`${escapeInline(addressId)}\`.`;
+
     return [
       new EmbedBuilder()
         .setColor(0xff5200)
         .setAuthor({ name: "Swiggy Instamart" })
-        .setTitle("Product Search")
-        .setDescription(`No products were returned for \`${escapeInline(productQuery)}\` at address \`${escapeInline(addressId)}\`.`)
+        .setTitle(emptyTitle)
+        .setDescription(description)
         .setTimestamp(),
     ];
   }
@@ -470,15 +451,11 @@ function buildInstamartSearchEmbeds(products: any[], addressId: string, productQ
   return products.map((product, index) => {
     const name = text(product, ["displayName", "productName", "itemName", "name", "title"]) || "Unnamed product";
     const brand = text(product, ["brand", "brandName"]) || "Not returned";
-    const productId = text(product, ["productId", "id"]) || "Not returned";
-    const parentProductId = text(product, ["parentProductId"]) || "Not returned";
     const inStock = product?.inStock ?? product?.isAvail;
     const promoted = product?.isPromoted;
     const variations = Array.isArray(product?.variations) ? product.variations : [];
     const description = [
       `Brand: ${escapeMarkdown(brand).slice(0, 120)}`,
-      `Product ID: \`${escapeInline(productId)}\``,
-      `Parent Product ID: \`${escapeInline(parentProductId)}\``,
       typeof inStock === "boolean" ? `Available: ${inStock ? "Yes" : "No"}` : null,
       typeof promoted === "boolean" ? `Featured/Sponsored: ${promoted ? "Yes" : "No"}` : null,
       variations.length ? `\n${variations.map(formatVariationLine).join("\n\n")}` : "\nNo variants were returned.",
@@ -544,6 +521,33 @@ function buildInstamartAddressActions() {
   );
 }
 
+function buildProductAddedEmbed(productItem: any, quantity: number, addressId: string): EmbedBuilder {
+  const name = text(productItem, ["displayName", "productName", "itemName", "name", "title"]) || "Unknown Product";
+  const price = rupee(productItem?.price?.offerPrice ?? productItem?.discountedPrice ?? productItem?.offerPrice ?? productItem?.price);
+  const mrp = rupee(productItem?.price?.mrp ?? productItem?.mrp);
+  const spinId = text(productItem, ["spinId", "id", "skuId", "itemId"]);
+  const inStock = productItem?.isInStockAndAvailable ?? productItem?.inStock ?? true;
+
+  const description = [
+    `**Product ID**: \`${escapeInline(spinId || "Not provided")}\``,
+    price ? `**Price**: ${price}` : null,
+    mrp && price !== mrp ? `**MRP**: ${mrp}` : null,
+    `**Quantity**: ${quantity}`,
+    `**Status**: ${inStock ? "✅ Available" : "❌ Out of Stock"}`,
+    `**Address**: \`${escapeInline(addressId)}\``,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return new EmbedBuilder()
+    .setColor(0x1da41a)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle(`✅ ${escapeMarkdown(name)}`)
+    .setDescription(description)
+    .setFooter({ text: "Product added to cart" })
+    .setTimestamp();
+}
+
 
 
 export default new SlashCommand({
@@ -559,6 +563,30 @@ export default new SlashCommand({
         )
         .addSubcommand((subcommand) =>
           subcommand.setName("clear").setDescription("Clear your Instamart cart")
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("add")
+            .setDescription("Add a product to your Instamart cart")
+            .addStringOption((option) =>
+              option
+                .setName("address-id")
+                .setDescription("Address ID from /instamart address")
+                .setRequired(true)
+            )
+            .addStringOption((option) =>
+              option
+                .setName("product-id")
+                .setDescription("Product ID to add")
+                .setRequired(true)
+            )
+            .addIntegerOption((option) =>
+              option
+                .setName("quantity")
+                .setDescription("Quantity to add (default: 1)")
+                .setMinValue(1)
+                .setMaxValue(100)
+            )
         )
     )
     .addSubcommand((subcommand) =>
@@ -621,7 +649,7 @@ export default new SlashCommand({
       const subcommandGroup = interaction.options.getSubcommandGroup(false);
       const subcommand = interaction.options.getSubcommand();
 
-      if (subcommand === "show" || subcommand === "clear") {
+      if (subcommand === "show" || subcommand === "clear" || subcommand === "add") {
         await interaction.deferReply();
 
         switch (subcommandGroup) {
@@ -633,6 +661,68 @@ export default new SlashCommand({
             if (subcommand === "clear") {
               await clearInstamartCart(accessToken);
               return interaction.editReply("Your Instamart cart has been cleared.");
+            }
+            if (subcommand === "add") {
+              const addressId = interaction.options.getString("address-id", true).trim();
+              const spinId = interaction.options.getString("product-id", true).trim();
+              const quantity = interaction.options.getInteger("quantity") ?? 1;
+
+              // Get current cart
+              const currentCart = await getInstamartCart(accessToken);
+              const cache = new Map<string, string>();
+              const currentItems = getExtractedInstamartCartItems(currentCart, cache);
+
+              // Find if item already exists
+              const existingItemIndex = currentItems.findIndex((item) => item.spinId === spinId);
+              
+              // Build new items array
+              let newItems: any[];
+              if (existingItemIndex >= 0) {
+                // Update quantity of existing item (immutably)
+                const updatedItems = currentItems.map((item, index) =>
+                  index === existingItemIndex
+                    ? { ...item, quantity: item.quantity + quantity }
+                    : item
+                );
+                newItems = updatedItems.map((item) => ({
+                  spinId: item.spinId,
+                  quantity: item.quantity,
+                }));
+              } else {
+                // Add new item
+                newItems = [
+                  ...currentItems.map((item) => ({
+                    spinId: item.spinId,
+                    quantity: item.quantity,
+                  })),
+                  {
+                    spinId,
+                    quantity,
+                  },
+                ];
+              }
+
+              // Update cart
+              const updateResult = await swiggyTools.instamart.updateCart(accessToken, {
+                selectedAddressId: addressId,
+                items: newItems,
+              });
+              assertToolSuccess(updateResult, "update_cart");
+
+              // Get updated cart to show product details
+              const updatedCart = await getInstamartCart(accessToken);
+              const cache2 = new Map<string, string>();
+              const updatedItems = getExtractedInstamartCartItems(updatedCart, cache2);
+              const addedItem = updatedItems.find((item) => item.spinId === spinId);
+
+              // Build product added embed
+              if (addedItem) {
+                return interaction.editReply({
+                  embeds: [buildProductAddedEmbed(addedItem, quantity, addressId)],
+                });
+              } else {
+                return interaction.editReply(`Product with ID \`${escapeInline(spinId)}\` has been added to your cart.`);
+              }
             }
             break;
           default:

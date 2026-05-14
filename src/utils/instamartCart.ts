@@ -1,7 +1,7 @@
 import { EmbedBuilder } from "discord.js";
 import { swiggyTools } from "./swiggyTools.js";
 
-const DEFAULT_PAYMENT_METHOD = "Default";
+const DEFAULT_PAYMENT_METHOD = "COD";
 
 type InstamartCartItem = {
   spinId: string;
@@ -138,6 +138,25 @@ function extractInstamartCartItems(cartPayload: any, cache: Map<string, string>)
       seen.add(key);
       return true;
     });
+}
+
+/**
+ * Extracts Instamart cart items from a raw cart payload.
+ * 
+ * Parses cart data and returns an array of normalized items with extracted
+ * spinId, quantity, name, price, and stock status. The cache parameter is used
+ * to avoid recomputing name-to-spinId mappings across repeated calls.
+ * 
+ * @param cartPayload - The raw cart payload object from the Swiggy API
+ * @param cache - Optional shared name/id mapping cache (defaults to new Map()).
+ *                Used to store spinId-to-name mappings. Note: the cache is mutated
+ *                if new name mappings are discovered during extraction.
+ * @returns Array of InstamartCartItem objects with shape:
+ *          { spinId: string; quantity: number; name?: string; price?: number; inStock?: boolean }
+ *          Items are deduplicated by spinId:quantity pair.
+ */
+export function getExtractedInstamartCartItems(cartPayload: any, cache: Map<string, string> = new Map()): InstamartCartItem[] {
+  return extractInstamartCartItems(cartPayload, cache);
 }
 
 export async function getInstamartCart(accessToken: string) {

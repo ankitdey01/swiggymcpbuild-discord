@@ -100,6 +100,8 @@ export const swiggyTools = {
     getCart: (accessToken: string) => callSwiggyTool("instamart", accessToken, "get_cart"),
     getOrders: (accessToken: string, args: GetInstamartOrdersArguments = {}) =>
       callSwiggyTool("instamart", accessToken, "get_orders", args),
+    updateCart: (accessToken: string, args: SwiggyToolArguments) =>
+      callSwiggyTool("instamart", accessToken, "update_cart", args),
     yourGoToItems: (accessToken: string, args: YourGoToItemsArguments) =>
       callSwiggyTool("instamart", accessToken, "your_go_to_items", args),
   },
