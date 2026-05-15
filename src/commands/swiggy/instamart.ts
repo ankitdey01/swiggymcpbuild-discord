@@ -702,11 +702,38 @@ export default new SlashCommand({
                 ];
               }
 
+              // Save original items to revert if needed
+              const originalItems = currentItems.map((item) => ({
+                spinId: item.spinId,
+                quantity: item.quantity,
+              }));
+
               // Update cart
               const updateResult = await swiggyTools.instamart.updateCart(accessToken, {
                 selectedAddressId: addressId,
                 items: newItems,
-              });
+              }) as any;
+
+              // Check for partial availability error
+              if (updateResult?.success === false && updateResult?.error?.message?.toLowerCase().includes("partially available")) {
+                // Revert cart to original state
+                await swiggyTools.instamart.updateCart(accessToken, {
+                  selectedAddressId: addressId,
+                  items: originalItems,
+                });
+
+                return interaction.editReply({
+                  embeds: [
+                    new EmbedBuilder()
+                      .setColor(0xff9800)
+                      .setAuthor({ name: "Swiggy Instamart" })
+                      .setTitle("⚠️ Item Quantity Partially Available")
+                      .setDescription("Item quantity is partially available, please reduce Quantity.")
+                      .setTimestamp(),
+                  ],
+                });
+              }
+
               assertToolSuccess(updateResult, "update_cart");
 
               // Get updated cart to show product details
