@@ -3,6 +3,13 @@ import { swiggyTools } from "./swiggyTools.js";
 
 const DEFAULT_PAYMENT_METHOD = "COD";
 
+export class StoreClosedError extends Error {
+  constructor() {
+    super("item inventory not available");
+    this.name = "StoreClosedError";
+  }
+}
+
 type InstamartCartItem = {
   spinId: string;
   quantity: number;
@@ -160,7 +167,22 @@ export function getExtractedInstamartCartItems(cartPayload: any, cache: Map<stri
 }
 
 export async function getInstamartCart(accessToken: string) {
-  return swiggyTools.instamart.getCart(accessToken);
+  const result: any = await swiggyTools.instamart.getCart(accessToken);
+  
+  if (result?.success === true) return result;
+  // Check if get_cart returns false with store closed related errors
+  const errorMessage = result?.message || result?.error?.message || "";
+  const isStoreClosedError = 
+    typeof errorMessage === "string" && (
+      errorMessage.toLowerCase().includes("item inventory not available") ||
+      errorMessage.toLowerCase().includes("not serviceable")
+    );
+
+  if (result?.success === false && isStoreClosedError) {
+    throw new StoreClosedError();
+  }
+
+  return result;
 }
 
 export async function clearInstamartCart(accessToken: string) {

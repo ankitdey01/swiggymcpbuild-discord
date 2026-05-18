@@ -14,6 +14,7 @@ import {
   clearInstamartCart,
   getInstamartCart,
   getExtractedInstamartCartItems,
+  StoreClosedError,
 } from "../../utils/instamartCart.js";
 import { callSwiggyCommerceTool, swiggyTools } from "../../utils/swiggyTools.js";
 
@@ -839,6 +840,29 @@ export default new SlashCommand({
 
       return interaction.reply("Unknown Instamart action.");
     } catch (error) {
+      // Handle store closed error
+      if (error instanceof StoreClosedError) {
+        const embed = new EmbedBuilder()
+          .setColor("Red")
+          .setAuthor({ name: "Swiggy Instamart" })
+          .setTitle("🔴 Store Closed")
+          .setDescription("The store is currently closed. Item inventory is not available at your selected location.")
+          .setThumbnail("attachment://closed.png")
+          .setTimestamp();
+
+        if (interaction.deferred || interaction.replied) {
+          return interaction.editReply({
+            embeds: [embed],
+            files: ["./src/public/closed.png"]
+          });
+        }
+
+        return interaction.reply({
+          embeds: [embed],
+          files: ["./src/public/closed.png"]
+        });
+      }
+
       const classified = classifySwiggyError(error);
       if (interaction.deferred || interaction.replied) {
         return interaction.editReply(`Instamart action failed: ${classified.userFriendlyMessage}`);

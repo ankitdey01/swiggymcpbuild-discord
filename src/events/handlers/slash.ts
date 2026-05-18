@@ -1,6 +1,5 @@
 import { ChatInputCommandInteraction, Events, InteractionType, EmbedBuilder } from "discord.js";
 import { Event, CustomClient, reply } from "../../structure/index.js";
-
 function getDiscordApiErrorCode(error: unknown): number | undefined {
     if (!error || typeof error !== "object" || !("code" in error)) return undefined;
 
@@ -30,6 +29,8 @@ export default new Event({
             return;
         }
 
+        
+
         // Execute command with error handling
         try {
             await command.execute(interaction, client);
@@ -37,7 +38,6 @@ export default new Event({
             console.error("Command execution error:", error);
 
             const errorCode = getDiscordApiErrorCode(error);
-
             // Discord already rejected or acknowledged this interaction, so avoid a second response attempt.
             if (errorCode === 10062 || errorCode === 40060) {
                 return;
