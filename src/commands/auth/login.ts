@@ -1,36 +1,24 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags, ComponentType, ButtonStyle } from "discord.js";
-import { CustomClient, SlashCommand } from "../../structure/index.js";
+import { SlashCommand } from "../../structure/index.js";
+import { authNotConfiguredEmbed, formatExpiryShort } from "../../utils/authEmbeds.js";
 
 export default new SlashCommand({
     data: new SlashCommandBuilder()
         .setName("login")
         .setDescription("Authenticate with your Swiggy account"),
     category: "Auth",
-    async execute(interaction) {
-        const client = interaction.client as CustomClient;
-
+    async execute(interaction, client) {
         // Check if Swiggy auth is initialized
         if (!client.swiggyAuth) {
             return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor("Red")
-                        .setTitle("❌ Auth Not Configured")
-                        .setDescription("Swiggy authentication is not yet configured. Please check with the bot administrator.")
-                ],
+                embeds: [authNotConfiguredEmbed()],
                 flags: MessageFlags.Ephemeral
             });
         }
 
         // Check if user is already authenticated
         if (client.swiggyAuth.isAuthenticated(interaction.user.id)) {
-            const expiry = client.swiggyAuth.getTokenExpiry(interaction.user.id);
-
-            let expiryText = "unknown";
-            if (expiry != null && typeof expiry === "number" && Number.isFinite(expiry) && expiry > 0) {
-                const daysLeft = Math.floor(expiry / 86400);
-                expiryText = daysLeft === 0 ? "<1 day" : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`;
-            }
+            const expiryText = formatExpiryShort(client.swiggyAuth.getTokenExpiry(interaction.user.id));
 
             return interaction.reply({
                 embeds: [

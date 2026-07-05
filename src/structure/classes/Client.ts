@@ -1,7 +1,7 @@
 import { Client, Collection, ColorResolvable } from "discord.js";
 import { ClientDataOptions, CustomClientOptions, BaseApplicationCommand } from "../interfaces/index.js";
 import { Handler } from "./index.js";
-import { Logger } from "./Logger.js";
+import { Logger, logger } from "./Logger.js";
 import { SwiggyAuth } from "../../utils/swiggyAuth.js";
 import { OAuthCallbackServer } from "./OAuthCallbackServer.js";
 
@@ -9,7 +9,7 @@ export class CustomClient extends Client {
     commands: Collection<string, BaseApplicationCommand> = new Collection();
     data: ClientDataOptions;
     handlers: Handler = new Handler(this);
-    logger: Logger = new Logger();
+    logger: Logger = logger;
     color: ColorResolvable;
     swiggyAuth!: SwiggyAuth;
     oauthServer!: OAuthCallbackServer;
@@ -34,10 +34,13 @@ export class CustomClient extends Client {
             this.oauthServer.start();
         }
 
-        await this.login(this.data.token);
-
+        // Register the process-level error traps and attach all event/command
+        // listeners *before* logging in, so the `once` ClientReady handler is
+        // guaranteed to be listening before the gateway fires ready.
         this.handlers.catchErrors();
-        this.handlers.loadEvents(this.data.handlers.events);
-        this.handlers.loadCommands(this.data.handlers.commands);
+        await this.handlers.loadEvents(this.data.handlers.events);
+        await this.handlers.loadCommands(this.data.handlers.commands);
+
+        await this.login(this.data.token);
     }
 }

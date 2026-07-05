@@ -1,16 +1,24 @@
 import { Client as MCPClient } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { CustomClient } from "../structure/index.js";
+import { logger } from "../structure/classes/Logger.js";
 
-export type SwiggyMcpServer = "instamart";
+/**
+ * When enabled, logs each MCP tool call's arguments and output at debug level.
+ * Off by default because tool output contains PII (addresses, phone numbers,
+ * order history). The bearer token is never logged.
+ */
+const SWIGGY_MCP_DEBUG = process.env.SWIGGY_MCP_DEBUG === "true";
 
-export interface McpToolContentItem {
+type SwiggyMcpServer = "instamart";
+
+interface McpToolContentItem {
   type: string;
   text?: string;
   [key: string]: unknown;
 }
 
-export interface McpToolResult {
+interface McpToolResult {
   structuredContent?: unknown;
   content?: McpToolContentItem[];
   toolResult?: unknown;
@@ -27,11 +35,11 @@ export function getSwiggyAccessToken(client: CustomClient, userId: string): stri
   return client.swiggyAuth?.getAccessToken(userId) || null;
 }
 
-export async function withSwiggyMcpClient<T>(
+async function withSwiggyMcpClient<T>(
   server: SwiggyMcpServer,
   accessToken: string,
   callback: (client: MCPClient) => Promise<T>,
-  clientName = "swiggy-discord-bot"
+  clientName: string
 ): Promise<T> {
   const endpoint = SWIGGY_MCP_ENDPOINTS[server];
   const controller = new AbortController();
@@ -79,22 +87,15 @@ export async function callSwiggyTool(
   );
 
   const output = unwrapMcpToolData(result);
-  console.log(
-    `[Swiggy MCP] ${server}.${name}`,
-    JSON.stringify(
-      {
-        arguments: toolArguments,
-        output,
-      },
-      null,
-      2
-    )
-  );
+
+  if (SWIGGY_MCP_DEBUG) {
+    logger.debug("Swiggy MCP", `${server}.${name} ${JSON.stringify({ arguments: toolArguments, output })}`);
+  }
 
   return output;
 }
 
-export function sanitizeSwiggyToolArguments(args: Record<string, unknown>): Record<string, unknown> {
+function sanitizeSwiggyToolArguments(args: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
 }
 
@@ -103,7 +104,7 @@ export function normalizeSwiggyOrderCount(count: number | null | undefined, fall
   return Math.max(1, Math.min(max, safeCount));
 }
 
-export function unwrapMcpToolData(result: McpToolResult): unknown {
+function unwrapMcpToolData(result: McpToolResult): unknown {
   if (result?.structuredContent) return result.structuredContent;
 
   const text = result?.content?.find((item: McpToolContentItem) => item.type === "text")?.text;

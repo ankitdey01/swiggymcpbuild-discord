@@ -1,23 +1,17 @@
-import { SlashCommandBuilder, EmbedBuilder, MessageFlags, ComponentType, ButtonStyle } from "discord.js";
-import { CustomClient, SlashCommand } from "../../structure/index.js";
+import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
+import { SlashCommand } from "../../structure/index.js";
+import { authNotConfiguredEmbed } from "../../utils/authEmbeds.js";
 
 export default new SlashCommand({
     data: new SlashCommandBuilder()
         .setName("logout")
         .setDescription("Disconnect your Swiggy account from the Discord bot"),
     category: "Auth",
-    async execute(interaction) {
-        const client = interaction.client as CustomClient
-
+    async execute(interaction, client) {
         // Check if Swiggy auth is initialized
         if (!client.swiggyAuth) {
             return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor("Red")
-                        .setTitle("❌ Auth Not Configured")
-                        .setDescription("Swiggy authentication is not yet configured."),
-                ],
+                embeds: [authNotConfiguredEmbed()],
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -58,13 +52,9 @@ export default new SlashCommand({
                 ],
                 flags: MessageFlags.Ephemeral
             });
-        } catch (error: any) {
-            const errorMessage = error?.message || "Unknown error";
-            const errorStack = error?.stack || "";
-            client.logger.error(
-                "AUTH",
-                `Logout failed for user ${interaction.user.id}: ${errorMessage}\n${errorStack}`
-            );
+        } catch (error) {
+            const details = error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error);
+            client.logger.error("AUTH", `Logout failed for user ${interaction.user.id}: ${details}`);
 
             return interaction.reply({
                 embeds: [

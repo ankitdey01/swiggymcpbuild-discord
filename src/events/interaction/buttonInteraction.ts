@@ -6,27 +6,17 @@ import {
   TextInputBuilder,
   TextInputStyle,
 } from "discord.js";
-import { Event } from "../../structure/index.js";
+import { Event, isIgnorableInteractionError } from "../../structure/index.js";
+import {
+  ADD_BUTTON_ID,
+  ADD_MODAL_INPUTS,
+  INSTAMART_ADDRESS_ADD_MODAL_ID,
+  INSTAMART_ADDRESS_REMOVE_MODAL_ID,
+  REMOVE_BUTTON_ID,
+  REMOVE_MODAL_INPUT_ID,
+} from "../../utils/instamartConstants.js";
 
-const ADD_BUTTON_ID = "instamart-address-add";
-const REMOVE_BUTTON_ID = "instamart-address-remove";
 const INSTAMART_ADDRESS_BUTTON_IDS = [ADD_BUTTON_ID, REMOVE_BUTTON_ID] as const;
-const INSTAMART_ADDRESS_ADD_MODAL_ID = "instamart-address-add-modal";
-const INSTAMART_ADDRESS_REMOVE_MODAL_ID = "instamart-address-remove-modal";
-const ADD_MODAL_INPUTS = {
-  addressLines: "instamart-address-lines",
-  localityCityPin: "instamart-address-locality-city-pin",
-  coordinates: "instamart-address-coordinates",
-  category: "instamart-address-category",
-  contacts: "instamart-address-contacts",
-} as const;
-
-function getDiscordApiErrorCode(error: unknown): number | undefined {
-  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
-
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "number" ? code : undefined;
-}
 
 function buildInstamartAddressAddModal() {
   const modal = new ModalBuilder()
@@ -90,7 +80,7 @@ function buildInstamartAddressRemoveModal() {
     .setTitle("Remove Instamart Address");
 
   const addressId = new TextInputBuilder()
-    .setCustomId("instamart-address-remove-id")
+    .setCustomId(REMOVE_MODAL_INPUT_ID)
     .setLabel("Address ID")
     .setStyle(TextInputStyle.Short)
     .setPlaceholder("Paste the address ID from the address embed")
@@ -123,8 +113,7 @@ export default new Event({
       if (!interaction.isButton()) return;
       return handleAddressButton(interaction);
     } catch (error) {
-      const code = getDiscordApiErrorCode(error);
-      if (code === 10062 || code === 40060) return;
+      if (isIgnorableInteractionError(error)) return;
       throw error;
     }
   },

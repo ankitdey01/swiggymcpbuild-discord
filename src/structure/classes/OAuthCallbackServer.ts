@@ -2,6 +2,8 @@ import express, { Express, Request, Response } from "express";
 import { SwiggyAuth } from "../../utils/swiggyAuth.js";
 import { CustomClient } from "./Client.js";
 
+const SECONDS_PER_DAY = 86_400;
+
 export class OAuthCallbackServer {
     private app: Express;
     private port: number;
@@ -36,14 +38,14 @@ export class OAuthCallbackServer {
             }
 
             try {
-                const { accessToken, userId, expiresIn } = await this.auth.exchangeCodeForToken(
+                const { userId, expiresIn } = await this.auth.exchangeCodeForToken(
                     code as string,
                     state as string
                 );
 
                 this.client.logger.info(
                     "Auth",
-                    `User ${userId} authenticated successfully with token ${accessToken} (expires in ${expiresIn}s)`
+                    `User ${userId} authenticated successfully (expires in ${expiresIn}s)`
                 );
 
                 // Send success page
@@ -67,8 +69,7 @@ export class OAuthCallbackServer {
                             <h1>✓ Authentication Successful</h1>
                             <p>Your Swiggy account is now connected to the Discord bot.</p>
                             <p>You can close this window and return to Discord.</p>
-                            <div class="code">Token: ${accessToken.substring(0, 20)}...</div>
-                            <p style="font-size: 0.9rem; color: #999;">This token will expire in ${Math.floor(expiresIn / 86400)} days</p>
+                            <p style="font-size: 0.9rem; color: #999;">This token will expire in ${Math.floor(expiresIn / SECONDS_PER_DAY)} days</p>
                         </div>
                         <script>
                             setTimeout(() => window.close(), 3000);
@@ -76,8 +77,9 @@ export class OAuthCallbackServer {
                     </body>
                     </html>
                 `);
-            } catch (error: any) {
-                this.client.logger.error("Auth", `Token exchange failed: ${error.message}`);
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                this.client.logger.error("Auth", `Token exchange failed: ${message}`);
                 return res.status(500).send(`
                     <!DOCTYPE html>
                     <html>
@@ -94,7 +96,7 @@ export class OAuthCallbackServer {
                         <div class="container">
                             <h1>✗ Authentication Failed</h1>
                             <p>Failed to exchange authorization code for token.</p>
-                            <p style="font-family: monospace; color: #999; font-size: 0.9rem;">${error.message}</p>
+                            <p style="font-family: monospace; color: #999; font-size: 0.9rem;">${message}</p>
                             <p>Please try again or contact support.</p>
                         </div>
                     </body>

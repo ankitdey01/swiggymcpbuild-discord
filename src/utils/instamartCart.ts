@@ -1,5 +1,6 @@
 import { EmbedBuilder } from "discord.js";
 import { swiggyTools } from "./swiggyTools.js";
+import { compact, dataOf, deepNumber, deepText, firstArray, isRecord, number, text } from "./payload.js";
 
 const DEFAULT_PAYMENT_METHOD = "COD";
 
@@ -18,74 +19,6 @@ type InstamartCartItem = {
   inStock?: boolean;
 };
 
-const dataOf = (payload: any) => payload?.data || payload?.result || payload;
-const isRecord = (value: any): value is Record<string, any> =>
-  Boolean(value && typeof value === "object" && !Array.isArray(value));
-
-function firstArray(value: any, predicate: (item: any) => boolean): any[] {
-  if (!value || typeof value !== "object") return [];
-  if (Array.isArray(value) && value.some(predicate)) return value;
-
-  for (const child of Object.values(value)) {
-    const found = firstArray(child, predicate);
-    if (found.length) return found;
-  }
-
-  return [];
-}
-
-function text(value: any, keys: string[]): string | null {
-  if (!isRecord(value)) return null;
-
-  for (const key of keys) {
-    const child = value[key];
-    if ((typeof child === "string" && child.trim()) || typeof child === "number") return String(child).trim();
-  }
-
-  return null;
-}
-
-function number(value: any, keys: string[]): number {
-  if (!isRecord(value)) return 0;
-
-  for (const key of keys) {
-    const child = value[key];
-    const parsed = typeof child === "number" ? child : typeof child === "string" ? Number(child) : 0;
-    if (parsed > 0) return parsed;
-  }
-
-  return 0;
-}
-
-function deepText(value: any, keys: string[]): string | null {
-  if (!value || typeof value !== "object") return null;
-
-  const direct = text(value, keys);
-  if (direct) return direct;
-
-  for (const child of Object.values(value)) {
-    const found = deepText(child, keys);
-    if (found) return found;
-  }
-
-  return null;
-}
-
-function deepNumber(value: any, keys: string[]): number | null {
-  if (!value || typeof value !== "object") return null;
-
-  for (const [key, child] of Object.entries(value)) {
-    if (keys.some((target) => key.toLowerCase().includes(target)) && typeof child === "number") return child;
-  }
-
-  for (const child of Object.values(value)) {
-    const found = deepNumber(child, keys);
-    if (found !== null) return found;
-  }
-
-  return null;
-}
-
 function addressLine(address: any): string | null {
   const direct = text(address, ["addressLine", "formattedAddress", "displayAddress", "fullAddress", "address"]);
   if (direct || !isRecord(address)) return direct;
@@ -101,7 +34,7 @@ function addressLine(address: any): string | null {
     address.state,
     address.pincode,
   ]
-    .map((part) => (typeof part === "string" || typeof part === "number" ? String(part).trim() : ""))
+    .map(compact)
     .filter(Boolean);
 
   return parts.length ? parts.join(", ") : null;
@@ -195,7 +128,7 @@ export function buildInstamartCartEmbed(cartPayload: any, addressesPayload?: any
   const items = extractInstamartCartItems(cartPayload, cache);
   const cartAddressId = deepText(data, ["selectedAddress", "selectedAddressId", "addressId", "id"]);
   const selectedAddressDetails = data?.selectedAddressDetails;
-  const addresses = firstArray(dataOf(addressesPayload), (item) => isRecord(item) && (item.addressId || item.id));
+  const addresses = firstArray(dataOf(addressesPayload), (item) => isRecord(item) && Boolean(item.addressId || item.id));
   const matchedAddress = cartAddressId
     ? addresses.find((address) => address.addressId === cartAddressId || address.id === cartAddressId)
     : addresses[0];
@@ -215,7 +148,7 @@ export function buildInstamartCartEmbed(cartPayload: any, addressesPayload?: any
   const directMethods = data?.availablePaymentMethods || data?.paymentMethods;
   const paymentLabels = (Array.isArray(directMethods)
     ? directMethods
-    : firstArray(data, (item) => isRecord(item) && (item.method || item.paymentMethod))
+    : firstArray(data, (item) => isRecord(item) && Boolean(item.method || item.paymentMethod))
   )
     .map((method) => (typeof method === "string" ? method : method.displayName || method.name || method.method || method.type))
     .filter(Boolean)

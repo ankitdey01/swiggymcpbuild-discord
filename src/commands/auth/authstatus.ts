@@ -1,23 +1,17 @@
 import { SlashCommandBuilder, EmbedBuilder, MessageFlags } from "discord.js";
-import { CustomClient, SlashCommand } from "../../structure/index.js";
+import { SlashCommand } from "../../structure/index.js";
+import { authNotConfiguredEmbed, formatExpiryDetailed } from "../../utils/authEmbeds.js";
 
 export default new SlashCommand({
     data: new SlashCommandBuilder()
         .setName("authstatus")
         .setDescription("Check your Swiggy authentication status"),
     category: "Auth",
-    async execute(interaction) {
-        const client = interaction.client as CustomClient;
-
+    async execute(interaction, client) {
         // Check if Swiggy auth is initialized
         if (!client.swiggyAuth) {
             return interaction.reply({
-                embeds: [
-                    new EmbedBuilder()
-                        .setColor("Red")
-                        .setTitle("❌ Auth Not Configured")
-                        .setDescription("Swiggy authentication is not yet configured."),
-                ],
+                embeds: [authNotConfiguredEmbed()],
                 flags: MessageFlags.Ephemeral
             });
         }
@@ -53,8 +47,6 @@ export default new SlashCommand({
                 flags: MessageFlags.Ephemeral
             });
         }
-        const daysLeft = Math.floor(expiry / 86400);
-        const hoursLeft = Math.floor((expiry % 86400) / 3600);
         return interaction.reply({
             embeds: [
                 new EmbedBuilder()
@@ -68,7 +60,7 @@ export default new SlashCommand({
                     })
                     .addFields({
                         name: "Expires In",
-                        value: `${daysLeft} days and ${hoursLeft} hours`,
+                        value: formatExpiryDetailed(expiry),
                         inline: false
                     })
                     .addFields({

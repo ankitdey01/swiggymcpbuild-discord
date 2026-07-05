@@ -7,7 +7,11 @@ export async function paginate(interaction: ValidInteraction, embeds: EmbedBuild
     if (embeds.length === 0) {
         throw new Error("Embeds array cannot be empty");
     }
-    await interaction.deferReply();
+    // The caller may have already deferred (e.g. to run a slow lookup before
+    // paginating); only defer here when the interaction is still unacknowledged.
+    if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+    }
 
     const previousPage = "Previous Page";
     const nextPage = "Next Page";

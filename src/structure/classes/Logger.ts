@@ -5,8 +5,16 @@ export class Logger {
         return console.log("[ " + getDateInFormat() + " ]" + " | " + Chalk.redBright("[ " + group.toUpperCase() + " ]") + " " + Chalk.red(description));
     }
 
+    warn(group: string, description: string) {
+        return console.log("[ " + getDateInFormat() + " ]" + " | " + Chalk.yellowBright("[ " + group.toUpperCase() + " ]") + " " + Chalk.yellow(description));
+    }
+
     debug(group: string, description: string) {
         return console.log("[ " + getDateInFormat() + " ]" + " | " + Chalk.yellowBright("[ " + group.toUpperCase() + " ]") + " " + Chalk.cyanBright(description));
+    }
+
+    trace(group: string, description: string) {
+        return console.log("[ " + getDateInFormat() + " ]" + " | " + Chalk.gray("[ " + group.toUpperCase() + " ]") + " " + Chalk.gray(description));
     }
 
     info(group: string, description: string) {
@@ -18,6 +26,13 @@ export class Logger {
         else return Chalk.red(text);
     }
 }
+
+/**
+ * Shared logger instance for modules that run outside the Discord client
+ * (auth, MCP transport, startup). The client reuses this same instance so all
+ * output is consistent.
+ */
+export const logger = new Logger();
 
 function getDateInFormat() {
     function toString(number: number, padLength: number) {

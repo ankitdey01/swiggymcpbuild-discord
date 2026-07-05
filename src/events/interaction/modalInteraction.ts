@@ -1,8 +1,15 @@
 import { Events, ModalSubmitInteraction, EmbedBuilder } from "discord.js";
-import { CustomClient, Event } from "../../structure/index.js";
+import { CustomClient, Event, isIgnorableInteractionError } from "../../structure/index.js";
 import { classifySwiggyError } from "../../utils/swiggyErrors.js";
 import { getSwiggyAccessToken } from "../../utils/swiggyMcp.js";
 import { swiggyTools, SwiggyToolArguments } from "../../utils/swiggyTools.js";
+import { assertToolSuccess, extractInstamartAddressIds } from "../../utils/swiggyPayload.js";
+import {
+  ADD_MODAL_INPUTS,
+  INSTAMART_ADDRESS_ADD_MODAL_ID,
+  INSTAMART_ADDRESS_REMOVE_MODAL_ID,
+  REMOVE_MODAL_INPUT_ID,
+} from "../../utils/instamartConstants.js";
 
 const ADDRESS_CATEGORIES = ["HOME", "WORK", "OTHER"] as const;
 type AddressCategory = (typeof ADDRESS_CATEGORIES)[number];
@@ -22,120 +29,10 @@ type InstamartAddressInput = {
   receiverPhone: string;
 };
 
-const INSTAMART_ADDRESS_ADD_MODAL_ID = "instamart-address-add-modal";
-const INSTAMART_ADDRESS_REMOVE_MODAL_ID = "instamart-address-remove-modal";
-const REMOVE_MODAL_INPUT_ID = "instamart-address-remove-id";
-const ADD_MODAL_INPUTS = {
-  addressLines: "instamart-address-lines",
-  localityCityPin: "instamart-address-locality-city-pin",
-  coordinates: "instamart-address-coordinates",
-  category: "instamart-address-category",
-  contacts: "instamart-address-contacts",
-} as const;
-
-function getDiscordApiErrorCode(error: unknown): number | undefined {
-  if (!error || typeof error !== "object" || !("code" in error)) return undefined;
-
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "number" ? code : undefined;
-}
-
 function userFacingError(error: unknown): string {
   const classified = classifySwiggyError(error);
   if (classified.category === "UNKNOWN" && error instanceof Error && error.message) return error.message;
   return classified.userFriendlyMessage;
-}
-
-const dataOf = (payload: any) => payload?.data || payload?.result || payload;
-const isRecord = (value: unknown): value is Record<string, any> =>
-  Boolean(value && typeof value === "object" && !Array.isArray(value));
-
-function text(value: any, keys: string[]): string | null {
-  if (!isRecord(value)) return null;
-
-  for (const key of keys) {
-    const child = value[key];
-    if ((typeof child === "string" && child.trim()) || typeof child === "number") return String(child).trim();
-  }
-
-  return null;
-}
-
-function firstArray(value: any, predicate: (item: any) => boolean): any[] {
-  if (!value || typeof value !== "object") return [];
-  if (Array.isArray(value) && value.some(predicate)) return value;
-
-  for (const child of Object.values(value)) {
-    const found = firstArray(child, predicate);
-    if (found.length) return found;
-  }
-
-  return [];
-}
-
-function assertToolSuccess(payload: any, toolName: string) {
-  if (payload?.success === false) {
-    const message = payload?.error?.message || payload?.message || `${toolName} failed.`;
-    throw new Error(message);
-  }
-}
-
-function addressLooksLikeRecord(item: any): boolean {
-  return (
-    isRecord(item) &&
-    Boolean(
-      text(item, [
-        "fullAddress",
-        "address",
-        "displayAddress",
-        "formattedAddress",
-        "addressLine",
-        "addressCategory",
-        "category",
-        "addressTag",
-        "userName",
-        "receiverPhone",
-        "selectedAddress",
-        "addressId",
-        "id",
-      ])
-    )
-  );
-}
-
-function getAddressId(address: any, data: any, addressCount: number): string | null {
-  return (
-    text(address, ["selectedAddress", "addressId", "id", "address_id"]) ||
-    (addressCount === 1 ? text(data, ["selectedAddress", "addressId", "id"]) : null)
-  );
-}
-
-function extractAddresses(payload: any): any[] {
-  const data = dataOf(payload);
-  const direct =
-    (Array.isArray(data?.addresses) && data.addresses) ||
-    (Array.isArray(data?.addressList) && data.addressList) ||
-    (Array.isArray(data?.savedAddresses) && data.savedAddresses) ||
-    (Array.isArray(data?.data) && data.data) ||
-    (Array.isArray(data) && data);
-
-  return Array.isArray(direct) ? direct.filter(addressLooksLikeRecord) : firstArray(data, addressLooksLikeRecord);
-}
-
-function extractInstamartAddressIds(payload: any): string[] {
-  const data = dataOf(payload);
-  const addresses = extractAddresses(payload);
-  const ids = new Set<string>();
-
-  for (const address of addresses) {
-    const id = getAddressId(address, data, addresses.length);
-    if (id) ids.add(id);
-  }
-
-  const selectedAddress = text(data, ["selectedAddress"]);
-  if (selectedAddress) ids.add(selectedAddress);
-
-  return [...ids];
 }
 
 async function getInstamartAddresses(accessToken: string) {
@@ -376,8 +273,7 @@ export default new Event({
         return handleAddressRemoveModal(interaction, client);
       }
     } catch (error) {
-      const code = getDiscordApiErrorCode(error);
-      if (code === 10062 || code === 40060) return;
+      if (isIgnorableInteractionError(error)) return;
       throw error;
     }
   },

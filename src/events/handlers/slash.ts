@@ -1,11 +1,9 @@
 import { ChatInputCommandInteraction, Events, InteractionType, EmbedBuilder } from "discord.js";
-import { Event, CustomClient, reply } from "../../structure/index.js";
-function getDiscordApiErrorCode(error: unknown): number | undefined {
-    if (!error || typeof error !== "object" || !("code" in error)) return undefined;
+import { Event, CustomClient, reply, isIgnorableInteractionError } from "../../structure/index.js";
 
-    const code = (error as { code?: unknown }).code;
-    return typeof code === "number" ? code : undefined;
-}
+const ERROR_EMBED = new EmbedBuilder()
+    .setColor("DarkRed")
+    .setDescription("An error occurred while executing this command");
 
 export default new Event({
     name: Events.InteractionCreate,
@@ -35,42 +33,20 @@ export default new Event({
         try {
             await command.execute(interaction, client);
         } catch (error) {
-            console.error("Command execution error:", error);
+            client.logger.error("Command", `${interaction.commandName}: ${error instanceof Error ? error.stack || error.message : String(error)}`);
 
-            const errorCode = getDiscordApiErrorCode(error);
             // Discord already rejected or acknowledged this interaction, so avoid a second response attempt.
-            if (errorCode === 10062 || errorCode === 40060) {
-                return;
-            }
+            if (isIgnorableInteractionError(error)) return;
 
-            // Only try to respond if we haven't already
-            if (!interaction.replied && !interaction.deferred) {
-                try {
-                    await interaction.reply({
-                        embeds: [new EmbedBuilder()
-                            .setColor("DarkRed")
-                            .setDescription("An error occurred while executing this command")
-                        ]
-                    });
-                } catch (replyError) {
-                    const replyCode = getDiscordApiErrorCode(replyError);
-                    if (replyCode !== 10062 && replyCode !== 40060) {
-                        console.error("Failed to send error message:", replyError);
-                    }
+            try {
+                if (!interaction.replied && !interaction.deferred) {
+                    await interaction.reply({ embeds: [ERROR_EMBED] });
+                } else {
+                    await interaction.editReply({ embeds: [ERROR_EMBED] });
                 }
-            } else {
-                try {
-                    await interaction.editReply({
-                        embeds: [new EmbedBuilder()
-                            .setColor("DarkRed")
-                            .setDescription("An error occurred while executing this command")
-                        ]
-                    });
-                } catch (editError) {
-                    const editCode = getDiscordApiErrorCode(editError);
-                    if (editCode !== 10062 && editCode !== 40060) {
-                        console.error("Failed to edit reply with error message:", editError);
-                    }
+            } catch (responseError) {
+                if (!isIgnorableInteractionError(responseError)) {
+                    client.logger.error("Command", `Failed to send error response: ${responseError instanceof Error ? responseError.message : String(responseError)}`);
                 }
             }
         }

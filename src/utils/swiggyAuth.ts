@@ -1,6 +1,13 @@
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { logger } from "../structure/classes/Logger.js";
+
+interface TokenResponse {
+    access_token: string;
+    expires_in: number;
+    scope: string;
+}
 
 interface StoredAuth {
     userId: string;
@@ -116,7 +123,7 @@ export class SwiggyAuth {
                 throw new Error(`Token exchange failed: ${response.status} - ${error}`);
             }
 
-            const data: any = await response.json();
+            const data = (await response.json()) as TokenResponse;
 
             const expiresAt = Date.now() + (data.expires_in * 1000);
             const storedAuth: StoredAuth = {
@@ -204,7 +211,7 @@ export class SwiggyAuth {
                 }
             });
         } catch (error) {
-            console.error("Logout failed:", error);
+            logger.error("Auth", `Logout request failed: ${error instanceof Error ? error.message : String(error)}`);
         }
 
         this.removeAuth(userId);
@@ -226,7 +233,7 @@ export class SwiggyAuth {
 
             fs.writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2), "utf-8");
         } catch (error) {
-            console.error("Failed to save auth:", error);
+            logger.error("Auth", `Failed to save auth: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -239,7 +246,7 @@ export class SwiggyAuth {
             const filtered = data.filter((a: StoredAuth) => a.userId !== userId);
             fs.writeFileSync(AUTH_FILE, JSON.stringify(filtered, null, 2), "utf-8");
         } catch (error) {
-            console.error("Failed to remove auth:", error);
+            logger.error("Auth", `Failed to remove auth: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
