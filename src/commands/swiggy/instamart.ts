@@ -36,7 +36,7 @@ async function getInstamartAddresses(accessToken: string) {
 
 /** Reduces extracted cart items to the minimal `{ spinId, quantity }` shape update_cart expects. */
 function toCartInputs(items: { spinId: string; quantity: number }[]): CartItemInput[] {
-  return items.map((item) => ({ spinId: item.spinId, quantity: item.quantity }));
+  return items.map(({ spinId, quantity }) => ({ spinId, quantity }));
 }
 
 export default new SlashCommand({

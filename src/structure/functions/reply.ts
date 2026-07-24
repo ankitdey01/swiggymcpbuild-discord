@@ -9,21 +9,21 @@ export type ValidInteractionTypes =
     ModalSubmitInteraction;
 
 export async function reply(interaction: ValidInteractionTypes, emoji: string, description: string, ephemeral: boolean = false) {
-    // Check if interaction can still be replied to
     if (interaction.replied || interaction.deferred) {
         logger.warn("Interaction", "Attempted to reply to an already handled interaction");
-        return Promise.resolve();
+        return;
     }
+
+    const embedColor = emoji === "❌" ? Colors.DarkRed : config.color;
 
     return interaction.reply({
         embeds: [
             new EmbedBuilder()
-                .setColor(emoji === "❌" ? Colors.DarkRed : config.color)
+                .setColor(embedColor)
                 .setDescription(`\`${emoji}\` | **${description}**`)
         ],
         ...(ephemeral ? { flags: MessageFlags.Ephemeral } : {})
     }).catch((error) => {
         logger.error("Interaction", `Failed to reply to interaction: ${error instanceof Error ? error.message : String(error)}`);
-        // Don't throw the error to prevent unhandled promise rejections
     });
 }

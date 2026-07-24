@@ -26,16 +26,18 @@ export default new SlashCommand({
                         .setColor("Yellow")
                         .setTitle("⚠️ Already Authenticated")
                         .setDescription(`You're already logged in to Swiggy.`)
-                        .addFields({
-                            name: "Token Expires In",
-                            value: expiryText,
-                            inline: false
-                        })
-                        .addFields({
-                            name: "Want to Re-authenticate?",
-                            value: "Use `/logout` first, then run `/login` again.",
-                            inline: false
-                        })
+                        .addFields(
+                            {
+                                name: "Token Expires In",
+                                value: expiryText,
+                                inline: false
+                            },
+                            {
+                                name: "Want to Re-authenticate?",
+                                value: "Use `/logout` first, then run `/login` again.",
+                                inline: false
+                            }
+                        )
                 ],
                 flags: MessageFlags.Ephemeral
             });
@@ -63,16 +65,18 @@ export default new SlashCommand({
                     .setDescription(
                         "Click the button below to authenticate with your Swiggy account. This will allow the bot to access your Swiggy data."
                     )
-                    .addFields({
-                        name: "Permissions Required",
-                        value: "• Access Swiggy tools\n• Read resources\n• Use prompts",
-                        inline: false
-                    })
-                    .addFields({
-                        name: "Security",
-                        value: "Your token is stored securely and never shared.",
-                        inline: false
-                    })
+                    .addFields(
+                        {
+                            name: "Permissions Required",
+                            value: "• Access Swiggy tools\n• Read resources\n• Use prompts",
+                            inline: false
+                        },
+                        {
+                            name: "Security",
+                            value: "Your token is stored securely and never shared.",
+                            inline: false
+                        }
+                    )
                     .setFooter({ text: "You will be redirected to Swiggy to complete authentication" })
             ],
             components: [

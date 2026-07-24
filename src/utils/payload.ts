@@ -24,9 +24,8 @@ export function text(value: unknown, keys: string[]): string | null {
 
   for (const key of keys) {
     const child = value[key];
-    if ((typeof child === "string" && child.trim()) || typeof child === "number") {
-      return String(child).trim();
-    }
+    const trimmed = (typeof child === "string" && child.trim()) || (typeof child === "number" && String(child));
+    if (trimmed) return trimmed;
   }
 
   return null;

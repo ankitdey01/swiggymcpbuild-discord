@@ -45,9 +45,15 @@ export class Handler {
 
             const execute = (...args: unknown[]) => event?.execute(...args, this.client);
 
-            if (event?.name !== null) event?.once ? this.client.once(event?.name, execute) : this.client.on(event?.name, execute);
-            else if (event?.name === null && event?.restEvent) event?.once ? this.client.rest.once(event?.restEvent, execute) : this.client.rest.on(event?.restEvent, execute);
-            else throw new TypeError(`Event ${file.split("/").at(-2)}/${file.split("/").at(-1)} has no event name`);
+            // Discord.js event names are enum values, never empty strings or null
+            // Truthy check is safe and more idiomatic than explicit null comparison
+            if (event?.name) {
+                event.once ? this.client.once(event.name, execute) : this.client.on(event.name, execute);
+            } else if (event?.restEvent) {
+                event.once ? this.client.rest.once(event.restEvent, execute) : this.client.rest.on(event.restEvent, execute);
+            } else {
+                throw new TypeError(`Event ${file.split("/").at(-2)}/${file.split("/").at(-1)} has no event name`);
+            }
             loadedEvents++;
         }
 
@@ -55,18 +61,18 @@ export class Handler {
     }
 
     catchErrors() {
+        const formatError = (err: unknown) => 
+            err instanceof Error ? err.stack || err.message : String(err);
+
         process
             .on("uncaughtException", (err) => {
-                const message = err instanceof Error ? err.stack || err.message : String(err);
-                this.client.logger.error("System", `Uncaught Exception: ${message}`);
+                this.client.logger.error("System", `Uncaught Exception: ${formatError(err)}`);
             })
             .on("uncaughtExceptionMonitor", (err) => {
-                const message = err instanceof Error ? err.stack || err.message : String(err);
-                this.client.logger.error("System", `Uncaught Exception (Monitor): ${message}`);
+                this.client.logger.error("System", `Uncaught Exception (Monitor): ${formatError(err)}`);
             })
             .on("unhandledRejection", (reason) => {
-                const message = reason instanceof Error ? reason.stack || reason.message : String(reason);
-                this.client.logger.error("System", `Unhandled Rejection: ${message}`);
+                this.client.logger.error("System", `Unhandled Rejection: ${formatError(reason)}`);
             });
     }
 }

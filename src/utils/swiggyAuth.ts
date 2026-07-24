@@ -158,16 +158,14 @@ export class SwiggyAuth {
             const data = this.readAuthFile();
             const auth = data.find((a: StoredAuth) => a.userId === userId);
 
-            if (!auth) return null;
-
-            // Check if token is still valid
-            if (Date.now() >= auth.expiresAt) {
-                this.removeAuth(userId);
+            if (!auth || Date.now() >= auth.expiresAt) {
+                if (auth) this.removeAuth(userId);
                 return null;
             }
 
             return auth.accessToken;
-        } catch {
+        } catch (error) {
+            logger.error("Auth", `Failed to get access token: ${error instanceof Error ? error.message : String(error)}`);
             return null;
         }
     }
@@ -190,7 +188,8 @@ export class SwiggyAuth {
 
             const secondsRemaining = Math.floor((auth.expiresAt - Date.now()) / 1000);
             return secondsRemaining > 0 ? secondsRemaining : null;
-        } catch {
+        } catch (error) {
+            logger.error("Auth", `Failed to get token expiry: ${error instanceof Error ? error.message : String(error)}`);
             return null;
         }
     }
@@ -263,6 +262,8 @@ export class SwiggyAuth {
      * Read authentication file
      */
     private readAuthFile(): StoredAuth[] {
+        if (!fs.existsSync(AUTH_FILE)) return [];
+        
         try {
             const content = fs.readFileSync(AUTH_FILE, "utf-8");
             return JSON.parse(content);
