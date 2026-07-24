@@ -2,6 +2,7 @@ import { Events, RESTPostAPIApplicationCommandsJSONBody, SlashCommandBuilder } f
 import { getAllFiles } from "../functions/index.js";
 import { Event, SlashCommand, BaseApplicationCommand } from "../interfaces/index.js";
 import { CustomClient } from "./index.js";
+import path from "path";
 
 export class Handler {
     private client: CustomClient;
@@ -52,7 +53,9 @@ export class Handler {
             } else if (event?.restEvent) {
                 event.once ? this.client.rest.once(event.restEvent, execute) : this.client.rest.on(event.restEvent, execute);
             } else {
-                throw new TypeError(`Event ${file.split("/").at(-2)}/${file.split("/").at(-1)} has no event name`);
+                const dir = path.basename(path.dirname(file));
+                const filename = path.basename(file);
+                throw new TypeError(`Event ${dir}/${filename} has no event name`);
             }
             loadedEvents++;
         }
