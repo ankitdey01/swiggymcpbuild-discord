@@ -1,5 +1,5 @@
 {
-    "name": "discordjs-v14-template",
+    "name": "swiggy-build",
     "version": "1.0.11",
     "description": "Simple Discord.js v14 template (TypeScript)",
     "main": "./dist/index.js",

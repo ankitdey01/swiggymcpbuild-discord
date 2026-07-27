@@ -81,7 +81,7 @@ export class SwiggyAuth {
             code_challenge: codeChallenge,
             code_challenge_method: "S256",
             state: state,
-            scope: "mcp:tools mcp:resources mcp:prompts"
+            scope: "mcp:tools mcp:resources mcp:prompts" //
         });
 
         return `${SWIGGY_BASE}/auth/authorize?${params.toString()}`;

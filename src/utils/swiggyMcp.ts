@@ -10,7 +10,7 @@ import { logger } from "../structure/classes/Logger.js";
  */
 const SWIGGY_MCP_DEBUG = process.env.SWIGGY_MCP_DEBUG === "true";
 
-type SwiggyMcpServer = "instamart";
+export type SwiggyMcpServer = "instamart";
 
 interface McpToolContentItem {
   type: string;
@@ -95,6 +95,10 @@ export async function callSwiggyTool(
   return output;
 }
 
+export async function listSwiggyTools(server: SwiggyMcpServer, accessToken: string) {
+  return withSwiggyMcpClient(server, accessToken, (client) => client.listTools(), `swiggy-${server}-test-runner`);
+}
+
 function sanitizeSwiggyToolArguments(args: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(args).filter(([, value]) => value !== undefined && value !== null));
 }
@@ -105,7 +109,8 @@ export function normalizeSwiggyOrderCount(count: number | null | undefined, fall
 }
 
 function unwrapMcpToolData(result: McpToolResult): unknown {
-  if (result?.structuredContent) return result.structuredContent;
+  const structured = result?.structuredContent;
+  if (structured && (typeof structured !== "object" || Object.keys(structured).length > 0)) return structured;
 
   const text = result?.content?.find((item: McpToolContentItem) => item.type === "text")?.text;
   if (typeof text === "string") {
@@ -116,5 +121,5 @@ function unwrapMcpToolData(result: McpToolResult): unknown {
     }
   }
 
-  return result;
+  return structured ?? result;
 }

@@ -35,6 +35,32 @@ function userFacingError(error: unknown): string {
   return classified.userFriendlyMessage;
 }
 
+/**
+ * Detect if the API returned an empty object, indicating the tool is not yet implemented
+ */
+function isEmptyToolResponse(result: unknown): boolean {
+  if (typeof result !== "object" || result === null) return false;
+  return Object.keys(result).length === 0;
+}
+
+/**
+ * Build a minimal address operation result embed
+ */
+function buildAddressResultEmbed(title: string, description: string, color: number, status?: string) {
+  const embed = new EmbedBuilder()
+    .setColor(color)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle(title)
+    .setDescription(description)
+    .setTimestamp();
+
+  if (status) {
+    embed.addFields({ name: "Status", value: status, inline: false });
+  }
+
+  return embed;
+}
+
 async function getInstamartAddresses(accessToken: string) {
   const result = await swiggyTools.instamart.getAddresses(accessToken);
   assertToolSuccess(result, "get_addresses");
@@ -163,39 +189,38 @@ async function handleAddressAddModal(interaction: ModalSubmitInteraction, client
 
   try {
     const input = parseAddressAddModal(interaction.fields);
-    const { args, result } = await createInstamartAddress(accessToken, input);
+    const { result } = await createInstamartAddress(accessToken, input);
+
+    if (isEmptyToolResponse(result)) {
+      return interaction.editReply({
+        embeds: [
+          buildAddressResultEmbed(
+            "⚠️ Address Add Not Implemented",
+            "The `create_address` tool is not yet available on the Swiggy MCP server.",
+            0xffa500,
+            "This feature is coming soon."
+          ),
+        ],
+      });
+    }
 
     return interaction.editReply({
       embeds: [
-        new EmbedBuilder()
-          .setColor(0xff5200)
-          .setAuthor({ name: "Swiggy Instamart" })
-          .setTitle("Address Added")
-          .setDescription(`Created \`${input.addressCategory}\` address for ${input.city}.`)
-          .addFields(
-            {
-              name: "Tool Call Arguments",
-              value: `\`\`\`json\n${JSON.stringify(args, null, 2).replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
-              inline: false,
-            },
-            {
-              name: "Tool Output",
-              value: `\`\`\`json\n${JSON.stringify(result, null, 2).replace(/`/g, "'").slice(0, 1000)}\n\`\`\``,
-              inline: false,
-            }
-          )
-          .setTimestamp(),
+        buildAddressResultEmbed(
+          "✅ Address Added",
+          `Created \`${input.addressCategory}\` address for ${input.city}.`,
+          0xff5200
+        ),
       ],
     });
   } catch (error) {
     return interaction.editReply({
       embeds: [
-        new EmbedBuilder()
-          .setColor(0xd83c3e)
-          .setAuthor({ name: "Swiggy Instamart" })
-          .setTitle("Could Not Add Address")
-          .setDescription(userFacingError(error))
-          .setTimestamp(),
+        buildAddressResultEmbed(
+          "❌ Could Not Add Address",
+          userFacingError(error),
+          0xd83c3e
+        ),
       ],
     });
   }
@@ -222,37 +247,47 @@ async function handleAddressRemoveModal(interaction: ModalSubmitInteraction, cli
     if (knownAddressIds.length && !knownAddressIds.includes(addressId)) {
       return interaction.editReply({
         embeds: [
-          new EmbedBuilder()
-            .setColor(0xd83c3e)
-            .setAuthor({ name: "Swiggy Instamart" })
-            .setTitle("Address Not Found")
-            .setDescription("No saved address matched that ID. Run `/instamart address` and paste the ID shown on the address you want to remove.")
-            .setTimestamp(),
+          buildAddressResultEmbed(
+            "❌ Address Not Found",
+            "No saved address matched that ID. Run `/instamart address` and paste the ID shown on the address you want to remove.",
+            0xd83c3e
+          ),
         ],
       });
     }
 
-    await deleteInstamartAddress(accessToken, addressId);
+    const result = await deleteInstamartAddress(accessToken, addressId);
+
+    if (isEmptyToolResponse(result)) {
+      return interaction.editReply({
+        embeds: [
+          buildAddressResultEmbed(
+            "⚠️ Address Delete Not Implemented",
+            "The `delete_address` tool is not yet available on the Swiggy MCP server.",
+            0xffa500,
+            `Attempted to delete: \`${addressId.replace(/`/g, "'")}\``
+          ),
+        ],
+      });
+    }
 
     return interaction.editReply({
       embeds: [
-        new EmbedBuilder()
-          .setColor(0xff5200)
-          .setAuthor({ name: "Swiggy Instamart" })
-          .setTitle("Address Removed")
-          .setDescription(`Deleted address ID \`${addressId.replace(/`/g, "'")}\`.`)
-          .setTimestamp(),
+        buildAddressResultEmbed(
+          "✅ Address Removed",
+          `Deleted address ID \`${addressId.replace(/`/g, "'")}\`.`,
+          0xff5200
+        ),
       ],
     });
   } catch (error) {
     return interaction.editReply({
       embeds: [
-        new EmbedBuilder()
-          .setColor(0xd83c3e)
-          .setAuthor({ name: "Swiggy Instamart" })
-          .setTitle("Could Not Remove Address")
-          .setDescription(userFacingError(error))
-          .setTimestamp(),
+        buildAddressResultEmbed(
+          "❌ Could Not Remove Address",
+          userFacingError(error),
+          0xd83c3e
+        ),
       ],
     });
   }

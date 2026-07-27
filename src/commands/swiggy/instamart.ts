@@ -10,7 +10,7 @@ import {
   StoreClosedError,
 } from "../../utils/instamartCart.js";
 import { swiggyTools } from "../../utils/swiggyTools.js";
-import { dataOf, escapeInline, isRecord, text } from "../../utils/payload.js";
+import { dataOf, escapeInline, escapeMarkdown, isRecord, text } from "../../utils/payload.js";
 import {
   assertToolSuccess,
   extractInstamartOrders,
@@ -24,6 +24,9 @@ import {
   buildInstamartSearchEmbeds,
   buildMostOrderedEmbeds,
   buildProductAddedEmbed,
+  buildInstamartOrderDetailsEmbed,
+  buildCheckoutEmbed,
+  buildTrackOrderEmbed,
 } from "../../utils/instamartEmbeds.js";
 
 type CartItemInput = { spinId: string; quantity: number };
@@ -125,6 +128,62 @@ export default new SlashCommand({
             .setDescription("Product name, category, or brand to search")
             .setRequired(true)
         )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("track-order")
+        .setDescription("Track your Instamart order")
+        .addIntegerOption((option) =>
+          option
+            .setName("order-id")
+            .setDescription("Order ID to track")
+            .setRequired(true)
+            .setMinValue(100000000000000).setMaxValue(999999999999999)
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName("lat")
+            .setDescription("Latitude of delivery address")
+            .setRequired(true)
+        )
+        .addIntegerOption((option) =>
+          option
+            .setName("lng")
+            .setDescription("Longitude of delivery address")
+            .setRequired(true)
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("checkout")
+        .setDescription("Place an order from your cart")
+        .addStringOption((option) =>
+          option
+            .setName("address-id")
+            .setDescription("Delivery address ID")
+            .setRequired(true)
+        )
+        .addStringOption((option) =>
+          option
+            .setName("payment-method")
+            .setDescription("Payment method (COD or UPI)")
+            .setRequired(true)
+            .addChoices(
+              { name: "Cash on Delivery", value: "COD" },
+              { name: "UPI QR Code", value: "UPI" }
+            )
+        )
+    )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("order-details")
+        .setDescription("Get detailed information about an order")
+        .addStringOption((option) =>
+          option
+            .setName("order-id")
+            .setDescription("Order ID to view details")
+            .setRequired(true)
+        )
     ),
   category: "Swiggy",
 
@@ -140,12 +199,22 @@ export default new SlashCommand({
       if (subcommand === "show") {
         await interaction.deferReply();
         const cart = await getInstamartCart(accessToken);
+        
+        if (checkResultMessage(cart)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(cart)] });
+        }
+        
         return interaction.editReply({ embeds: [buildInstamartCartEmbed(cart)] });
       }
 
       if (subcommand === "clear") {
         await interaction.deferReply();
-        await clearInstamartCart(accessToken);
+        const result = await clearInstamartCart(accessToken);
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
         return interaction.editReply("Your Instamart cart has been cleared.");
       }
 
@@ -157,6 +226,11 @@ export default new SlashCommand({
       if (subcommand === "address") {
         await interaction.deferReply();
         const addresses = await getInstamartAddresses(accessToken);
+        
+        if (checkResultMessage(addresses)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(addresses)] });
+        }
+        
         return interaction.editReply({
           embeds: [buildInstamartAddressEmbed(addresses)],
           components: [buildInstamartAddressActions()],
@@ -167,7 +241,12 @@ export default new SlashCommand({
         await interaction.deferReply();
         const count = normalizeSwiggyOrderCount(interaction.options.getInteger("count"));
         const activeOnly = interaction.options.getBoolean("active-only") ?? false;
-        const result = await swiggyTools.instamart.getOrders(accessToken, { count, orderType: "INSTAMART", activeOnly });
+        const result = await swiggyTools.instamart.getOrders(accessToken, { count, orderType: "DASH", activeOnly });
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
         assertToolSuccess(result, "get_orders");
 
         const orders = extractInstamartOrders(result).slice(0, 20);
@@ -178,6 +257,11 @@ export default new SlashCommand({
         await interaction.deferReply();
         const addressId = interaction.options.getString("address-id", true).trim();
         const result = await swiggyTools.instamart.yourGoToItems(accessToken, { addressId });
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
         assertToolSuccess(result, "your_go_to_items");
 
         const items = extractMostOrderedItems(result);
@@ -189,11 +273,61 @@ export default new SlashCommand({
         const addressId = interaction.options.getString("address-id", true).trim();
         const product = interaction.options.getString("product", true).trim();
         const result = await swiggyTools.instamart.searchProducts(accessToken, { addressId, query: product });
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
         assertToolSuccess(result, "search_products");
 
         const products = extractSearchProducts(result);
         const nextOffset = text(dataOf(result), ["nextOffset"]);
         return paginate(interaction, buildInstamartSearchEmbeds(products, addressId, product, nextOffset || undefined));
+      }
+
+      if (subcommand === "track-order") {
+        await interaction.deferReply();
+        const orderId = String(interaction.options.getInteger("order-id", true));
+        const lat = interaction.options.getInteger("lat", true);
+        const lng = interaction.options.getInteger("lng", true);
+        
+        const result = await swiggyTools.instamart.trackOrder(accessToken, { orderId, lat, lng });
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
+        assertToolSuccess(result, "track_order");
+        return interaction.editReply({ embeds: [buildTrackOrderEmbed(result)] });
+      }
+
+      if (subcommand === "checkout") {
+        await interaction.deferReply();
+        const addressId = interaction.options.getString("address-id", true).trim();
+        const paymentChoice = interaction.options.getString("payment-method", true).toUpperCase();
+        
+        const paymentMethod = paymentChoice === "COD" ? "Cash" : "UPI";
+        const result = await swiggyTools.instamart.checkout(accessToken, { addressId, paymentMethod });
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
+        assertToolSuccess(result, "checkout");
+        return interaction.editReply({ embeds: [buildCheckoutEmbed(result, paymentChoice)] });
+      }
+
+      if (subcommand === "order-details") {
+        await interaction.deferReply();
+        const orderId = interaction.options.getString("order-id", true).trim();
+        const result = await swiggyTools.instamart.getOrderDetails(accessToken, { orderId });
+        
+        if (checkResultMessage(result)) {
+          return interaction.editReply({ embeds: [buildResultMessageEmbed(result)] });
+        }
+        
+        assertToolSuccess(result, "get_order_details");
+        return interaction.editReply({ embeds: [buildInstamartOrderDetailsEmbed(result)] });
       }
 
       return interaction.reply("Unknown Instamart action.");
@@ -232,6 +366,10 @@ async function addToCart(
     items: newItems,
   });
 
+  if (checkResultMessage(updateResult)) {
+    return interaction.editReply({ embeds: [buildResultMessageEmbed(updateResult)] });
+  }
+
   if (isPartiallyAvailableError(updateResult)) {
     // Roll the cart back to how it was before this add.
     await swiggyTools.instamart.updateCart(accessToken, { selectedAddressId: addressId, items: originalItems });
@@ -262,6 +400,24 @@ function isPartiallyAvailableError(result: unknown): boolean {
   if (!isRecord(result) || result.success !== false) return false;
   const message = isRecord(result.error) ? result.error.message : undefined;
   return typeof message === "string" && message.toLowerCase().includes("partially available");
+}
+
+function checkResultMessage(result: unknown): boolean {
+  const data = dataOf(result);
+  const message = text(data, ["message"]);
+  return Boolean(message);
+}
+
+function buildResultMessageEmbed(result: unknown): EmbedBuilder {
+  const data = dataOf(result);
+  const message = text(data, ["message"]) || "Operation completed";
+  
+  return new EmbedBuilder()
+    .setColor(0xff9800)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle("ℹ️ Information")
+    .setDescription(escapeMarkdown(message))
+    .setTimestamp();
 }
 
 async function handleInstamartError(

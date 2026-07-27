@@ -53,19 +53,21 @@ function formatOrderDate(order: any): string | null {
 }
 
 function formatOrderLine(order: any, index: number): string {
-  const orderId = text(order, ["orderId", "id", "order_id"]) || "Not returned";
-  const status = text(order, ["status", "orderStatus", "deliveryStatus"]) || "Status not returned";
-  const total = text(order, ["total", "totalAmount", "amount", "orderTotal", "billTotal"]);
+  const orderId = text(order, ["orderId", "id", "order_id"]) || "Unknown";
+  const status = text(order, ["status", "orderStatus", "deliveryStatus", "historyStatus"]) || "Unknown";
+  const total = text(order, ["totalAmount", "total", "amount", "orderTotal", "billTotal", "grandTotal"]);
   const date = formatOrderDate(order);
   const items = formatOrderItems(order);
-  const address = text(order, ["address", "deliveryAddress", "addressName", "area", "locality"]);
-  const tags = [status, total ? formatPrice({ price: total }) : null, date].filter(Boolean).map((value) => `\`${escapeInline(value!)}\``);
+  
+  const statusEmoji = status.toUpperCase().includes("DELIVERED") ? "✅" : 
+                      status.toUpperCase().includes("CANCELLED") ? "❌" : 
+                      "🔄";
 
   return [
-    `**${index + 1}. Order ${escapeMarkdown(orderId)}**`,
-    tags.length ? tags.join(" ") : null,
-    items ? items.slice(0, 500) : null,
-    address ? `_${escapeMarkdown(address).slice(0, 180)}_` : null,
+    `### ${statusEmoji} Order #${escapeMarkdown(orderId)}`,
+    `**${escapeMarkdown(status)}** • ${total ? formatPrice({ price: total }) : 'N/A'}`,
+    date ? `📅 ${date}` : null,
+    items ? `📦 ${items}` : null,
   ]
     .filter(Boolean)
     .join("\n");
@@ -76,9 +78,9 @@ export function buildInstamartHistoryEmbeds(orders: any[], shownCount: number): 
     return [
       new EmbedBuilder()
         .setColor(SWIGGY_ORANGE)
-        .setAuthor({ name: "Swiggy Instamart" })
-        .setTitle("Instamart Order History")
-        .setDescription("No Instamart orders were returned.")
+        .setAuthor({ name: "Swiggy Instamart", iconURL: "https://media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto/portal/m/app_icon" })
+        .setTitle("📦 Order History")
+        .setDescription("No orders found in your history.")
         .setFooter({ text: `Requested ${shownCount} order(s)` })
         .setTimestamp(),
     ];
@@ -95,10 +97,15 @@ export function buildInstamartHistoryEmbeds(orders: any[], shownCount: number): 
     pages.push(
       new EmbedBuilder()
         .setColor(SWIGGY_ORANGE)
-        .setAuthor({ name: "Swiggy Instamart" })
-        .setTitle("Instamart Order History")
+        .setAuthor({ name: "Swiggy Instamart", iconURL: "https://media-assets.swiggy.com/swiggy/image/upload/fl_lossy,f_auto,q_auto/portal/m/app_icon" })
+        .setTitle("📦 Your Order History")
         .setDescription(pageOrders.map((order, offset) => formatOrderLine(order, start + offset)).join("\n\n").slice(0, 4000))
-        .setFooter({ text: `Page ${pageNumber}/${pageCount} | Showing ${visibleOrders.length}/${shownCount} order(s)` })
+        .addFields({
+          name: "💡 Tip",
+          value: `Use \`/instamart order-details\` with an order ID to see full details`,
+          inline: false
+        })
+        .setFooter({ text: `Page ${pageNumber}/${pageCount} • ${visibleOrders.length} of ${shownCount} orders` })
         .setTimestamp()
     );
   }
@@ -271,5 +278,177 @@ export function buildProductAddedEmbed(productItem: any, quantity: number, addre
     .setTitle(`✅ ${escapeMarkdown(name)}`)
     .setDescription(description)
     .setFooter({ text: "Product added to cart" })
+    .setTimestamp();
+}
+
+export function buildInstamartOrderDetailsEmbed(result: unknown): EmbedBuilder {
+  const data = dataOf(result);
+  const order = data;
+
+  const orderId = text(order, ["orderId", "id", "order_id"]) || "Not returned";
+  const status = text(order, ["status", "orderStatus", "deliveryStatus", "historyStatus", "currentStatus"]) || "Unknown";
+  const orderDate = formatOrderDate(order);
+  
+  const items =
+    (Array.isArray(order?.items) && order.items) ||
+    (Array.isArray(order?.orderItems) && order.orderItems) ||
+    (Array.isArray(order?.orderedItems) && order.orderedItems) ||
+    [];
+
+  const itemsText = items.length
+    ? items
+        .slice(0, 15)
+        .map((item: any) => {
+          const name = text(item, ["name", "itemName", "productName", "displayName", "title"]) || "Item";
+          const quantity = text(item, ["quantity", "qty", "count"]);
+          const price = formatPrice(item);
+          return `• ${escapeMarkdown(name)}${quantity ? ` x ${quantity}` : ""}${price ? ` - ${price}` : ""}`;
+        })
+        .join("\n")
+    : "No items returned";
+
+  const billDetails = order?.billDetails || order;
+  const itemTotal = formatPrice({ price: text(billDetails, ["itemTotal", "subtotal", "subTotal", "itemsTotal"]) });
+  const deliveryFee = formatPrice({ price: text(billDetails, ["deliveryFee", "deliveryCharge", "deliveryCharges"]) });
+  const handlingFee = formatPrice({ price: text(billDetails, ["handlingFee", "packagingFee", "packingCharge", "packingCharges"]) });
+  const grandTotal = formatPrice({ price: text(billDetails, ["grandTotal", "total", "totalAmount", "orderTotal"]) });
+
+  const billBreakdown = [
+    itemTotal ? `**Item Total**: ${itemTotal}` : null,
+    deliveryFee ? `**Delivery Fee**: ${deliveryFee}` : null,
+    handlingFee ? `**Handling Fee**: ${handlingFee}` : null,
+    grandTotal ? `**Grand Total**: ${grandTotal}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const addressObj = order?.deliveryAddress;
+  const addressLine = typeof addressObj === "object" && addressObj !== null
+    ? text(addressObj, ["addressLine", "address", "fullAddress"])
+    : text(order, ["address", "deliveryAddress"]);
+
+  const description = [
+    `**Order ID**: \`${escapeInline(orderId)}\``,
+    `**Status**: \`${escapeInline(status)}\``,
+    orderDate ? `**Date**: ${orderDate}` : null,
+    addressLine ? `**Address**: ${escapeMarkdown(addressLine).slice(0, 200)}` : null,
+    `\n**Items** (${items.length}):\n${itemsText}`,
+    billBreakdown ? `\n**Bill Breakdown**:\n${billBreakdown}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 4000);
+
+  return new EmbedBuilder()
+    .setColor(SWIGGY_ORANGE)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle(`Order Details - ${orderId}`)
+    .setDescription(description)
+    .setTimestamp();
+}
+
+export function buildCheckoutEmbed(result: unknown, paymentChoice: string): EmbedBuilder {
+  const data = dataOf(result);
+  const orderId = text(data, ["orderId", "id", "order_id", "orderNumber"]) || "Not returned";
+  const status = text(data, ["status", "orderStatus", "state"]) || "Placed";
+  const total = formatPrice({ price: text(data, ["total", "grandTotal", "totalAmount", "orderTotal", "amount"]) }) || "Not returned";
+  const qrCodeUrl = text(data, ["qrCodeUrl", "qrCode", "upiUrl", "qrLink", "paymentUrl", "paymentLink"]);
+  
+  const embed = new EmbedBuilder()
+    .setColor(0x1da41a)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle("✅ Order Placed Successfully")
+    .setDescription([
+      `**Order ID**: \`${escapeInline(orderId)}\``,
+      `**Status**: ${escapeMarkdown(status)}`,
+      `**Total**: ${total}`,
+      `**Payment Method**: ${paymentChoice === "COD" ? "Cash on Delivery" : "UPI QR Code"}`,
+    ].join("\n"))
+    .setTimestamp();
+
+  if (paymentChoice === "UPI" && qrCodeUrl) {
+    embed.addFields({
+      name: "💳 Payment",
+      value: `[Click here to pay using UPI QR code](${qrCodeUrl})`,
+      inline: false
+    });
+  }
+
+  return embed;
+}
+
+export function buildTrackOrderEmbed(result: unknown): EmbedBuilder {
+  const data = dataOf(result);
+  
+  const orderId = text(data, ["orderId", "id", "order_id"]) || "Not returned";
+  
+  // Status information
+  const statusObj = data?.status || {};
+  const statusMessage = text(statusObj, ["statusMessage", "message", "status"]) || "Unknown";
+  
+  // Check if status is unavailable
+  if (statusMessage.toLowerCase().includes("order status unavailable")) {
+    return new EmbedBuilder()
+      .setColor(0xff9800)
+      .setAuthor({ name: "Swiggy Instamart" })
+      .setTitle(`📦 Track Order - ${orderId}`)
+      .setDescription("**Order status unavailable. Please re-check given Order ID**")
+      .setTimestamp();
+  }
+  
+  const orderTitle = text(data, ["orderTitle", "title"]) || "Instamart Order";
+  const orderSubtitle = text(data, ["orderSubtitle", "subtitle"]);
+  
+  // Store information
+  const storeInfo = data?.storeInfo || {};
+  const storeName = text(storeInfo, ["name", "storeName"]) || "Store";
+  const storeAddress = text(storeInfo, ["address", "storeAddress"]);
+  
+  // Delivery information
+  const deliveryInfo = data?.deliveryInfo || {};
+  const addressLabel = text(deliveryInfo, ["addressLabel", "label"]);
+  const fullAddress = text(deliveryInfo, ["fullAddress", "address", "deliveryAddress"]);
+  
+  // Items
+  const items = Array.isArray(data?.items) ? data.items : [];
+  const itemCount = data?.itemCount || items.length;
+  
+  const itemsText = items.length
+    ? items
+        .slice(0, 10)
+        .map((item: any) => {
+          const name = text(item, ["name", "itemName", "productName"]) || "Item";
+          const quantity = text(item, ["quantity", "qty"]);
+          const price = text(item, ["price", "amount"]);
+          return `• ${escapeMarkdown(name)}${price ? ` - ${price}` : ""}`;
+        })
+        .join("\n")
+    : "No items information available";
+  
+  // Time information
+  const placedAt = text(data, ["placedAt", "orderTime", "createdAt"]);
+  const pollingInterval = data?.pollingIntervalSeconds;
+  
+  const description = [
+    `**Order**: ${escapeMarkdown(orderTitle)}`,
+    orderSubtitle ? `**Details**: ${escapeMarkdown(orderSubtitle)}` : null,
+    `**Status**: ${escapeMarkdown(statusMessage)}`,
+    placedAt ? `**Placed At**: ${escapeMarkdown(placedAt)}` : null,
+    `\n**Store**: ${escapeMarkdown(storeName)}`,
+    storeAddress ? `${escapeMarkdown(storeAddress).slice(0, 200)}` : null,
+    addressLabel ? `\n**${escapeMarkdown(addressLabel)}**` : null,
+    fullAddress ? `${escapeMarkdown(fullAddress).slice(0, 200)}` : null,
+    `\n**Items** (${itemCount}):\n${itemsText}`,
+    pollingInterval && pollingInterval > 0 ? `\n*Tracking updates every ${pollingInterval} seconds*` : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 4000);
+
+  return new EmbedBuilder()
+    .setColor(SWIGGY_ORANGE)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle(`📦 Track Order - ${orderId}`)
+    .setDescription(description)
     .setTimestamp();
 }
