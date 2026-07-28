@@ -12,8 +12,9 @@ const config = {
 };
 
 function validateConfig() {
+    // Warn but don't fail if SWIGGY_CLIENT_ID is not set - bot can still run without Swiggy features
     if (!config.clientId || config.clientId === "YOUR_CLIENT_ID") {
-        throw new Error(`Configuration error: clientId must be set via SWIGGY_CLIENT_ID environment variable and cannot be the placeholder "YOUR_CLIENT_ID".`);
+        console.warn(`⚠️  Warning: SWIGGY_CLIENT_ID not configured. Swiggy OAuth will be unavailable.`);
     }
 
     const validDevelopers = config.developers
@@ -21,7 +22,7 @@ function validateConfig() {
         .filter((id) => id && id !== "YOUR_DISCORD_USER_ID");
 
     if (validDevelopers.length === 0) {
-        throw new Error(`Configuration error: developers must be set via DEVELOPER_IDS environment variable (comma-separated Discord user IDs) and cannot contain the placeholder "YOUR_DISCORD_USER_ID" or be empty.`);
+        console.warn(`⚠️  Warning: DEVELOPER_IDS not configured. Developer commands will not be available.`);
     }
 }
 
