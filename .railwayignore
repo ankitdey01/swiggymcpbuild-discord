@@ -1,0 +1,11 @@
+.env
+.env.local
+.git
+node_modules
+dist
+.DS_Store
+.vscode
+.idea
+*.log
+.auth.json
+src/test.ts
