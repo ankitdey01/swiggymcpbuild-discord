@@ -1,7 +1,7 @@
 {
     "name": "swiggy-build",
     "version": "1.0.11",
-    "description": "Simple Discord.js v14 template (TypeScript)",
+    "description": "Simple Swiggy MCP integration inside discord (TypeScript)",
     "main": "./dist/index.js",
     "scripts": {
         "lint": "eslint . --ext .ts",

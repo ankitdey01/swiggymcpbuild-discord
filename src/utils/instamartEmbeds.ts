@@ -351,8 +351,9 @@ export function buildCheckoutEmbed(result: unknown, paymentChoice: string): Embe
   const data = dataOf(result);
   const orderId = text(data, ["orderId", "id", "order_id", "orderNumber"]) || "Not returned";
   const status = text(data, ["status", "orderStatus", "state"]) || "Placed";
-  const total = formatPrice({ price: text(data, ["total", "grandTotal", "totalAmount", "orderTotal", "amount"]) }) || "Not returned";
-  const qrCodeUrl = text(data, ["qrCodeUrl", "qrCode", "upiUrl", "qrLink", "paymentUrl", "paymentLink"]);
+  const total = formatPrice({ price: text(data, ["cartTotal", "total", "grandTotal", "totalAmount", "orderTotal", "amount"]) }) || "Not returned";
+  const deliveryAddress = text(data, ["deliveryAddress", "address"]);
+  const deliveryLabel = text(data, ["deliveryLabel", "addressLabel"]);
   
   const embed = new EmbedBuilder()
     .setColor(0x1da41a)
@@ -363,16 +364,10 @@ export function buildCheckoutEmbed(result: unknown, paymentChoice: string): Embe
       `**Status**: ${escapeMarkdown(status)}`,
       `**Total**: ${total}`,
       `**Payment Method**: ${paymentChoice === "COD" ? "Cash on Delivery" : "UPI QR Code"}`,
-    ].join("\n"))
+      deliveryLabel ? `\n**${escapeMarkdown(deliveryLabel)}**` : null,
+      deliveryAddress ? escapeMarkdown(deliveryAddress).slice(0, 200) : null,
+    ].filter(Boolean).join("\n"))
     .setTimestamp();
-
-  if (paymentChoice === "UPI" && qrCodeUrl) {
-    embed.addFields({
-      name: "💳 Payment",
-      value: `[Click here to pay using UPI QR code](${qrCodeUrl})`,
-      inline: false
-    });
-  }
 
   return embed;
 }

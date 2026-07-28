@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { paginate, SlashCommand } from "../../structure/index.js";
 import { getSwiggyAccessToken, normalizeSwiggyOrderCount } from "../../utils/swiggyMcp.js";
 import { classifySwiggyError } from "../../utils/swiggyErrors.js";
@@ -314,7 +314,25 @@ export default new SlashCommand({
         }
         
         assertToolSuccess(result, "checkout");
-        return interaction.editReply({ embeds: [buildCheckoutEmbed(result, paymentChoice)] });
+        
+        const embed = buildCheckoutEmbed(result, paymentChoice);
+        const replyOptions: any = { embeds: [embed] };
+        
+        // Add payment button for UPI
+        if (paymentChoice === "UPI") {
+          const bridgeUrl = text(dataOf(result), ["bridgeUrl"]); //"paymentUrl", "upiUrl"
+          if (bridgeUrl) {
+            const button = new ButtonBuilder()
+              .setLabel("Click here to pay")
+              .setStyle(ButtonStyle.Link)
+              .setURL(bridgeUrl);
+            
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(button);
+            replyOptions.components = [row];
+          }
+        }
+        
+        return interaction.editReply(replyOptions);
       }
 
       if (subcommand === "order-details") {
