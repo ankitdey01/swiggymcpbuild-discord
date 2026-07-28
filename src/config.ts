@@ -12,7 +12,15 @@ const config = {
 };
 
 function validateConfig() {
-    // Warn but don't fail if SWIGGY_CLIENT_ID is not set - bot can still run without Swiggy features
+    // Debug: Log what we actually have
+    console.log("🔍 Config Debug:");
+    console.log(`   DISCORD_TOKEN: ${process.env.DISCORD_TOKEN ? "✓ set" : "✗ NOT SET"}`);
+    console.log(`   SWIGGY_CLIENT_ID: ${process.env.SWIGGY_CLIENT_ID ? "✓ set" : "✗ NOT SET"}`);
+    console.log(`   DEVELOPER_IDS: ${process.env.DEVELOPER_IDS ? "✓ set" : "✗ NOT SET"}`);
+    console.log(`   OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? "✓ set" : "✗ NOT SET"}`);
+    console.log(`   OAUTH_CALLBACK_URL: ${process.env.OAUTH_CALLBACK_URL ? "✓ set" : "✗ NOT SET"}`);
+    
+    // Warn but don't fail if SWIGGY_CLIENT_ID is not set
     if (!config.clientId || config.clientId === "YOUR_CLIENT_ID") {
         console.warn(`⚠️  Warning: SWIGGY_CLIENT_ID not configured. Swiggy OAuth will be unavailable.`);
     }
