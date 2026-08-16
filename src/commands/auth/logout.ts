@@ -17,7 +17,7 @@ export default new SlashCommand({
         }
 
         // Check if user is authenticated
-        if (!client.swiggyAuth.isAuthenticated(interaction.user.id)) {
+        if (!(await client.swiggyAuth.isAuthenticated(interaction.user.id))) {
             return interaction.reply({
                 embeds: [
                     new EmbedBuilder()

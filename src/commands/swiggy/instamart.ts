@@ -188,7 +188,7 @@ export default new SlashCommand({
   category: "Swiggy",
 
   async execute(interaction, client) {
-    const accessToken = getSwiggyAccessToken(client, interaction.user.id);
+    const accessToken = await getSwiggyAccessToken(client, interaction.user.id);
     if (!accessToken) {
       return interaction.reply("Use `/login` to connect your Swiggy account before managing Instamart.");
     }

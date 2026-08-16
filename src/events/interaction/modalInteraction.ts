@@ -177,7 +177,7 @@ function parseInstamartAddressRemoveModal(fields: ModalSubmitInteraction["fields
 }
 
 async function handleAddressAddModal(interaction: ModalSubmitInteraction, client: CustomClient) {
-  const accessToken = getSwiggyAccessToken(client, interaction.user.id);
+  const accessToken = await getSwiggyAccessToken(client, interaction.user.id);
   if (!accessToken) {
     return interaction.reply({
       content: "Use `/login` to connect your Swiggy account before managing Instamart addresses.",
@@ -227,7 +227,7 @@ async function handleAddressAddModal(interaction: ModalSubmitInteraction, client
 }
 
 async function handleAddressRemoveModal(interaction: ModalSubmitInteraction, client: CustomClient) {
-  const accessToken = getSwiggyAccessToken(client, interaction.user.id);
+  const accessToken = await getSwiggyAccessToken(client, interaction.user.id);
   if (!accessToken) {
     return interaction.reply({
       content: "Use `/login` to connect your Swiggy account before managing Instamart addresses.",

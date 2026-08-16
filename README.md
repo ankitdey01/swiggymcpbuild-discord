@@ -62,6 +62,17 @@ DISCORD_TOKEN=your_discord_bot_token_here
 SWIGGY_CLIENT_ID=your_client_id_from_builders_club
 DEVELOPER_IDS=your_discord_user_id
 OAUTH_CALLBACK_URL=http://localhost:3000/auth/callback
+
+# Supabase project URL
+SUPABASE_URL=https://towcfndndjspnmjgmzog.supabase.co
+
+# Supabase service-role key (backend only; never expose it to clients)
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# Generate once with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Keep only in Railway environment variables or an untracked local .env file.
+# Losing it makes stored tokens permanently undecryptable; leaking it compromises every token.
+TOKEN_ENCRYPTION_KEY=64_character_hex_key_generated_once
 ```
 
 ### 3. Build and Run
@@ -116,13 +127,20 @@ This will:
    - Token expiry validation and auto-cleanup
    - Token revocation on logout
 
-2. **OAuthCallbackServer** (`src/structure/classes/OAuthCallbackServer.ts`)
+2. **Supabase storage** (`src/utils/supabase.ts`, `supabase/migrations/`)
+   - Durable encrypted token storage in `swiggy_auth_tokens`
+   - Short-lived PKCE state storage in `swiggy_oauth_states`
+
+3. **Token encryption** (`src/utils/tokenEncryption.ts`)
+   - AES-256-GCM envelope encryption using a per-token key wrapped by `TOKEN_ENCRYPTION_KEY`
+
+4. **OAuthCallbackServer** (`src/structure/classes/OAuthCallbackServer.ts`)
    - Express.js HTTP server
    - Handles OAuth 2.1 redirects from Swiggy
    - Provides user-friendly HTML response pages
    - Logs all authentication events
 
-3. **Custom Client** (`src/structure/classes/Client.ts`)
+5. **Custom Client** (`src/structure/classes/Client.ts`)
    - Extends Discord.js Client
    - Initializes Swiggy authentication on startup
    - Manages command and event loading
@@ -150,7 +168,7 @@ The bot implements a secure OAuth 2.1 flow with PKCE (Proof Key for Code Exchang
    ↓
 8. Bot exchanges code + verifier for access token
    ↓
-9. Token stored in .auth.json with 5-day expiration
+9. Token is encrypted with envelope encryption and stored in Supabase
    ↓
 10. ✓ User is authenticated in Discord
 ```
@@ -168,7 +186,7 @@ The bot implements a secure OAuth 2.1 flow with PKCE (Proof Key for Code Exchang
 | Component | Duration | Notes |
 |-----------|----------|-------|
 | Authorization Code | 120 seconds | Single-use only |
-| Access Token | 5 days | Stored in `.auth.json` |
+| Access Token | 5 days | Encrypted before storage in Supabase |
 | State Token | 5 minutes | CSRF protection, auto-cleanup |
 | User Session | 30 days | Idle timeout with sliding window |
 
@@ -198,7 +216,7 @@ Disconnect your Swiggy account from the bot.
 
 **Response:**
 - Revokes token with Swiggy
-- Removes stored token locally
+- Removes the stored token from Supabase
 - Confirms successful logout
 
 #### `/authstatus`
@@ -257,7 +275,11 @@ src/
 │           ├── Base.ts
 │           └── Command.ts
 ├── utils/
-│   └── swiggyAuth.ts                   # OAuth 2.1 implementation
+│   ├── swiggyAuth.ts                   # OAuth 2.1 implementation
+│   ├── supabase.ts                     # Supabase service-role client
+│   └── tokenEncryption.ts              # AES-256-GCM envelope encryption
+├── supabase/
+│   └── migrations/                     # Auth token and PKCE state tables
 ├── config.ts                           # Environment-based config
 └── index.ts                            # Entry point
 
@@ -293,28 +315,29 @@ DEVELOPER_IDS=your_discord_user_id_here
 # Default: http://localhost:3000/auth/callback
 # For production: https://your-domain.com/auth/callback
 OAUTH_CALLBACK_URL=http://localhost:3000/auth/callback
+
+# Supabase project URL
+SUPABASE_URL=https://towcfndndjspnmjgmzog.supabase.co
+
+# Supabase service-role key (backend only; never expose it to clients)
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+
+# Generate once with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Keep only in Railway environment variables or an untracked local .env file.
+# Losing it makes stored tokens permanently undecryptable; leaking it compromises every token.
+TOKEN_ENCRYPTION_KEY=64_character_hex_key_generated_once
 ```
 
 ### Token Storage
 
-Tokens are stored in `.auth.json` with the following structure:
+Access tokens are stored durably in Supabase in the `swiggy_auth_tokens` table.
+The token and its randomly generated per-token encryption key are both encrypted
+with AES-256-GCM before the row is written. The master
+`TOKEN_ENCRYPTION_KEY` exists only in Railway's environment variables or an
+untracked local `.env` file; it is never written to Supabase.
 
-```json
-[
-  {
-    "userId": "discord_user_id",
-    "accessToken": "swiggy_access_token_here",
-    "expiresAt": 1699999999999,
-    "scope": "mcp:tools mcp:resources mcp:prompts"
-  }
-]
-```
-
-⚠️ **Important**: For production deployment, use a secure vault service:
-- AWS Secrets Manager
-- HashiCorp Vault
-- Encrypted database
-- Environment-based encrypted storage
+In-flight PKCE state and code verifiers are stored for five minutes in
+`swiggy_oauth_states`, so login state is not lost when the worker restarts.
 
 ## Dependencies
 
@@ -323,6 +346,7 @@ Tokens are stored in `.auth.json` with the following structure:
 - **chalk** (v4.1.2) - Colored console output
 - **express** (v4.18.2) - OAuth callback server
 - **dotenv** (v16.3.1) - Environment variable loading
+- **@supabase/supabase-js** - Supabase Postgres client
 - **axios** (v1.6.0) - HTTP client (for future API calls)
 
 ### Development
@@ -349,12 +373,12 @@ location /auth/callback {
 }
 ```
 
-### 3. Secure Token Storage
+### 3. Configure Supabase Token Storage
 
-Update `SwiggyAuth` to use a vault:
-- AWS Secrets Manager
-- HashiCorp Vault
-- Encrypted RDS/PostgreSQL
+Apply the migration in `supabase/migrations/` to the `swind` Supabase project,
+then set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and
+`TOKEN_ENCRYPTION_KEY` in Railway. Do not rotate or delete the encryption key
+without re-encrypting the per-token keys first.
 
 ### 4. Enable HTTPS
 

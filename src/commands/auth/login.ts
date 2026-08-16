@@ -17,8 +17,8 @@ export default new SlashCommand({
         }
 
         // Check if user is already authenticated
-        if (client.swiggyAuth.isAuthenticated(interaction.user.id)) {
-            const expiryText = formatExpiryShort(client.swiggyAuth.getTokenExpiry(interaction.user.id));
+        if (await client.swiggyAuth.isAuthenticated(interaction.user.id)) {
+            const expiryText = formatExpiryShort(await client.swiggyAuth.getTokenExpiry(interaction.user.id));
 
             return interaction.reply({
                 embeds: [
@@ -44,7 +44,7 @@ export default new SlashCommand({
         }
 
         // Generate authorization URL
-        const authUrl = client.swiggyAuth.getAuthorizationUrl(interaction.user.id);
+        const authUrl = await client.swiggyAuth.getAuthorizationUrl(interaction.user.id);
         if (!authUrl) {
             return interaction.reply({
                 embeds: [

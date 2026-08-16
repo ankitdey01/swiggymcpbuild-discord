@@ -6,6 +6,7 @@
     "scripts": {
         "lint": "eslint . --ext .ts",
         "fix": "eslint . --ext .ts --fix",
+        "test": "tsc && node --test dist/utils/tokenEncryption.test.js",
         "start": "tsc && node ."
     },
     "keywords": [
@@ -19,6 +20,7 @@
     "license": "ISC",
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.29.0",
+        "@supabase/supabase-js": "^2.112.3",
         "axios": "^1.6.0",
         "chalk": "^4.1.2",
         "discord.js": "^14.25.1",

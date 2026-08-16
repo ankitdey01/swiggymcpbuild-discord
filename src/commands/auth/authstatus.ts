@@ -16,7 +16,7 @@ export default new SlashCommand({
             });
         }
 
-        const isAuthenticated = client.swiggyAuth.isAuthenticated(interaction.user.id);
+        const isAuthenticated = await client.swiggyAuth.isAuthenticated(interaction.user.id);
 
         if (!isAuthenticated) {
             return interaction.reply({
@@ -35,7 +35,7 @@ export default new SlashCommand({
             });
         }
 
-        const expiry = client.swiggyAuth.getTokenExpiry(interaction.user.id);
+        const expiry = await client.swiggyAuth.getTokenExpiry(interaction.user.id);
         if (!expiry) {
             return interaction.reply({
                 embeds: [

@@ -31,8 +31,8 @@ const SWIGGY_MCP_ENDPOINTS: Record<SwiggyMcpServer, string> = {
 };
 const SWIGGY_MCP_TIMEOUT_MS = parseInt(process.env.SWIGGY_MCP_TIMEOUT_MS || "30000", 10);
 
-export function getSwiggyAccessToken(client: CustomClient, userId: string): string | null {
-  return client.swiggyAuth?.getAccessToken(userId) || null;
+export async function getSwiggyAccessToken(client: CustomClient, userId: string): Promise<string | null> {
+  return client.swiggyAuth ? client.swiggyAuth.getAccessToken(userId) : null;
 }
 
 async function withSwiggyMcpClient<T>(
