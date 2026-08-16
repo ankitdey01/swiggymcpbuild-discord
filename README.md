@@ -278,10 +278,11 @@ src/
 │   ├── swiggyAuth.ts                   # OAuth 2.1 implementation
 │   ├── supabase.ts                     # Supabase service-role client
 │   └── tokenEncryption.ts              # AES-256-GCM envelope encryption
-├── supabase/
-│   └── migrations/                     # Auth token and PKCE state tables
 ├── config.ts                           # Environment-based config
 └── index.ts                            # Entry point
+
+supabase/
+└── migrations/                         # Auth token and PKCE state tables
 
 dist/                                   # Compiled JavaScript
 .env.example                            # Environment template

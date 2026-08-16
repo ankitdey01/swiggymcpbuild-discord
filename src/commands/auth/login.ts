@@ -16,6 +16,7 @@ export default new SlashCommand({
             });
         }
 
+        try {
         // Check if user is already authenticated
         if (await client.swiggyAuth.isAuthenticated(interaction.user.id)) {
             const expiryText = formatExpiryShort(await client.swiggyAuth.getTokenExpiry(interaction.user.id));
@@ -94,5 +95,17 @@ export default new SlashCommand({
             ],
             flags: MessageFlags.Ephemeral
         });
+        } catch (error) {
+            client.logger.error("AUTH", `Login failed: ${error instanceof Error ? error.message : String(error)}`);
+            return interaction.reply({
+                embeds: [
+                    new EmbedBuilder()
+                        .setColor("Red")
+                        .setTitle("Login Failed")
+                        .setDescription("An error occurred while starting authentication. Please try again later.")
+                ],
+                flags: MessageFlags.Ephemeral
+            });
+        }
     }
 });

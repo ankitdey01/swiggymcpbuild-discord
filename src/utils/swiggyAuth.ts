@@ -113,6 +113,7 @@ export class SwiggyAuth {
     ): Promise<{ accessToken: string; expiresIn: number; userId: string }> {
         await this.cleanupExpiredState(new Date().toISOString());
         const authState = await this.getAuthState(state);
+        let exchangeCompleted = false;
 
         try {
             const response = await fetch(`${SWIGGY_BASE}/auth/token`, {
@@ -150,13 +151,23 @@ export class SwiggyAuth {
             );
             if (error) throw databaseError("Saving encrypted access token", error);
 
+            exchangeCompleted = true;
             return {
                 accessToken: data.access_token,
                 expiresIn: data.expires_in,
                 userId: authState.discord_user_id,
             };
         } finally {
-            await this.removeAuthState(state);
+            try {
+                await this.removeAuthState(state);
+            } catch (cleanupError) {
+                if (exchangeCompleted) throw cleanupError;
+
+                logger.error(
+                    "Auth",
+                    `Failed to clean up OAuth state after an exchange error: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`
+                );
+            }
         }
     }
 
@@ -208,17 +219,23 @@ export class SwiggyAuth {
 
     /** Revoke the token with Swiggy and remove the durable row. */
     async logout(userId: string): Promise<void> {
-        const token = await this.getAccessToken(userId);
-        if (!token) return;
+        let token: string | null = null;
+        try {
+            token = await this.getAccessToken(userId);
+        } catch (error) {
+            logger.error("Auth", `Failed to retrieve token during logout: ${error instanceof Error ? error.message : String(error)}`);
+        }
 
         try {
-            await fetch(`${SWIGGY_BASE}/auth/logout`, {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                },
-            });
+            if (token) {
+                await fetch(`${SWIGGY_BASE}/auth/logout`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                });
+            }
         } catch (error) {
             logger.error("Auth", `Logout request failed: ${error instanceof Error ? error.message : String(error)}`);
         }
