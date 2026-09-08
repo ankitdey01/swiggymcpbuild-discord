@@ -367,7 +367,7 @@ export default new SlashCommand({
         if (paymentChoice === "UPI") {
           let bridgeUrl = text(dataOf(result), ["bridgeUrl"]); //"paymentUrl", "upiUrl"
           if (bridgeUrl) {
-            if(!bridgeUrl.endsWith("&mode=qr") || bridgeUrl.endsWith("?mode=qr")){
+            if(!bridgeUrl.endsWith("&mode=qr") && !bridgeUrl.endsWith("?mode=qr")){
               bridgeUrl += "&mode=qr";
             }
             const button = new ButtonBuilder()
@@ -494,7 +494,7 @@ function buildCouponsEmbed(result: unknown, addressId: string): EmbedBuilder {
       .setTimestamp();
   }
 
-  const lines = coupons.slice(0, 15).map((coupon: any, index: number) => {
+  const lines = coupons.slice(0, 15).map((coupon: any) => {
     const code = text(coupon, ["couponCode", "code"]) || "Unknown";
     const title = text(coupon, ["title", "name"]);
     const description = text(coupon, ["description", "details"]);
