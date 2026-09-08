@@ -322,7 +322,7 @@ export default new SlashCommand({
         if (paymentChoice === "UPI") {
           let bridgeUrl = text(dataOf(result), ["bridgeUrl"]); //"paymentUrl", "upiUrl"
           if (bridgeUrl) {
-            if(!bridgeUrl.endsWith("&mode=qr") || bridgeUrl.endsWith("?mode=qr")){
+            if(!bridgeUrl.endsWith("&mode=qr") || !bridgeUrl.endsWith("?mode=qr")){
               bridgeUrl += "&mode=qr";
             }
             const button = new ButtonBuilder()
