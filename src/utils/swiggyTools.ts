@@ -32,12 +32,22 @@ export type GetOrderDetailsArguments = {
   orderId: string;
 };
 
+export type ListCouponsArguments = {
+  addressId: string;
+};
+
+export type ApplyCouponArguments = {
+  couponCode: string;
+};
+
 /**
  * Thin, typed facade over the Instamart MCP tools. Each method maps a friendly
  * name to its underlying `snake_case` tool and forwards the bearer token.
  */
 export const swiggyTools = {
   instamart: {
+    applyCoupon: (accessToken: string, args: ApplyCouponArguments) =>
+      callSwiggyTool("instamart", accessToken, "apply_coupon", args),
     checkout: (accessToken: string, args: CheckoutArguments) =>
       callSwiggyTool("instamart", accessToken, "checkout", args),
     clearCart: (accessToken: string, args: SwiggyToolArguments = {}) =>
@@ -52,6 +62,8 @@ export const swiggyTools = {
       callSwiggyTool("instamart", accessToken, "get_order_details", args),
     getOrders: (accessToken: string, args: GetInstamartOrdersArguments = {}) =>
       callSwiggyTool("instamart", accessToken, "get_orders", args),
+    listCoupons: (accessToken: string, args: ListCouponsArguments) =>
+      callSwiggyTool("instamart", accessToken, "list_coupons", args),
     searchProducts: (accessToken: string, args: SearchProductsArguments) =>
       callSwiggyTool("instamart", accessToken, "search_products", args),
     trackOrder: (accessToken: string, args: TrackOrderArguments) =>
