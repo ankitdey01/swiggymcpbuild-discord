@@ -514,7 +514,7 @@ function buildCouponsEmbed(result: unknown, addressId: string): EmbedBuilder {
     .setAuthor({ name: "Swiggy Instamart" })
     .setTitle("🎟️ Available Instamart Coupons")
     .setDescription(lines.join("\n\n").slice(0, 4000))
-    .setFooter({ text: `${coupons.length} coupon(s) returned • Address ${addressId}` })
+    .setFooter({ text: `${Math.min(coupons.length, 15)} of ${coupons.length} coupon(s) shown • Address ${addressId}` })
     .setTimestamp();
 }
 
