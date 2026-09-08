@@ -37,7 +37,6 @@ async function getInstamartAddresses(accessToken: string) {
   return result;
 }
 
-/** Reduces extracted cart items to the minimal `{ spinId, quantity }` shape update_cart expects. */
 function toCartInputs(items: { spinId: string; quantity: number }[]): CartItemInput[] {
   return items.map(({ spinId, quantity }) => ({ spinId, quantity }));
 }
@@ -78,6 +77,33 @@ export default new SlashCommand({
                 .setDescription("Quantity to add (default: 1)")
                 .setMinValue(1)
                 .setMaxValue(100)
+            )
+        )
+    )
+    .addSubcommandGroup((group) =>
+      group
+        .setName("coupon")
+        .setDescription("Find and apply Instamart coupons")
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("find")
+            .setDescription("Find coupons available for your Instamart cart")
+            .addStringOption((option) =>
+              option
+                .setName("address-id")
+                .setDescription("Delivery address ID from /instamart address")
+                .setRequired(true)
+            )
+        )
+        .addSubcommand((subcommand) =>
+          subcommand
+            .setName("apply")
+            .setDescription("Apply a coupon to your current Instamart cart")
+            .addStringOption((option) =>
+              option
+                .setName("code")
+                .setDescription("Coupon code")
+                .setRequired(true)
             )
         )
     )
@@ -195,6 +221,25 @@ export default new SlashCommand({
 
     try {
       const subcommand = interaction.options.getSubcommand();
+      const group = interaction.options.getSubcommandGroup(false);
+
+      if (group === "coupon") {
+        await interaction.deferReply();
+
+        if (subcommand === "find") {
+          const addressId = interaction.options.getString("address-id", true).trim();
+          const result = await swiggyTools.instamart.listCoupons(accessToken, { addressId });
+          assertToolSuccess(result, "list_coupons");
+          return interaction.editReply({ embeds: [buildCouponsEmbed(result, addressId)] });
+        }
+
+        if (subcommand === "apply") {
+          const couponCode = interaction.options.getString("code", true).trim();
+          const result = await swiggyTools.instamart.applyCoupon(accessToken, { couponCode });
+          assertToolSuccess(result, "apply_coupon");
+          return interaction.editReply({ embeds: [buildCouponAppliedEmbed(result, couponCode)] });
+        }
+      }
 
       if (subcommand === "show") {
         await interaction.deferReply();
@@ -318,9 +363,8 @@ export default new SlashCommand({
         const embed = buildCheckoutEmbed(result, paymentChoice);
         const replyOptions: InteractionEditReplyOptions = { embeds: [embed] };
 
-        // Add payment button for UPI
         if (paymentChoice === "UPI") {
-          let bridgeUrl = text(dataOf(result), ["bridgeUrl"]); //"paymentUrl", "upiUrl"
+          let bridgeUrl = text(dataOf(result), ["bridgeUrl"]);
           if (bridgeUrl) {
             if(!bridgeUrl.endsWith("&mode=qr") || bridgeUrl.endsWith("?mode=qr")){
               bridgeUrl += "&mode=qr";
@@ -358,11 +402,6 @@ export default new SlashCommand({
   },
 });
 
-/**
- * Adds (or increments) a product in the cart. Reads the current cart, merges the
- * requested item, and calls update_cart. If Swiggy reports the quantity is only
- * partially available, the cart is reverted to its original items.
- */
 async function addToCart(
   interaction: ChatInputCommandInteraction,
   accessToken: string
@@ -392,7 +431,6 @@ async function addToCart(
   }
 
   if (isPartiallyAvailableError(updateResult)) {
-    // Roll the cart back to how it was before this add.
     await swiggyTools.instamart.updateCart(accessToken, { selectedAddressId: addressId, items: originalItems });
 
     return interaction.editReply({
@@ -438,6 +476,66 @@ function buildResultMessageEmbed(result: unknown): EmbedBuilder {
     .setAuthor({ name: "Swiggy Instamart" })
     .setTitle("ℹ️ Information")
     .setDescription(escapeMarkdown(message))
+    .setTimestamp();
+}
+
+function buildCouponsEmbed(result: unknown, addressId: string): EmbedBuilder {
+  const data = dataOf(result);
+  const coupons = Array.isArray(data?.availableCoupons) ? data.availableCoupons : [];
+
+  if (!coupons.length) {
+    return new EmbedBuilder()
+      .setColor(0xff5200)
+      .setAuthor({ name: "Swiggy Instamart" })
+      .setTitle("🎟️ Instamart Coupons")
+      .setDescription("No coupons are available for your current cart and address.")
+      .setFooter({ text: `Address ${addressId}` })
+      .setTimestamp();
+  }
+
+  const lines = coupons.slice(0, 15).map((coupon: any, index: number) => {
+    const code = text(coupon, ["couponCode", "code"]) || "Unknown";
+    const title = text(coupon, ["title", "name"]);
+    const description = text(coupon, ["description", "details"]);
+    const status = text(coupon, ["applicabilityStatus", "status"]) || "UNKNOWN";
+    const statusEmoji = status === "APPLIED" ? "✅" : status === "APPLICABLE" ? "🟢" : "⚪";
+
+    return [
+      `### ${statusEmoji} ${escapeMarkdown(code)}`,
+      title ? `**${escapeMarkdown(title)}**` : null,
+      description ? escapeMarkdown(description).slice(0, 500) : null,
+      `Status: **${escapeMarkdown(status)}**`,
+    ].filter(Boolean).join("\n");
+  });
+
+  return new EmbedBuilder()
+    .setColor(0xff5200)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle("🎟️ Available Instamart Coupons")
+    .setDescription(lines.join("\n\n").slice(0, 4000))
+    .setFooter({ text: `${coupons.length} coupon(s) returned • Address ${addressId}` })
+    .setTimestamp();
+}
+
+function buildCouponAppliedEmbed(result: unknown, couponCode: string): EmbedBuilder {
+  const data = dataOf(result);
+  const message = text(data, ["message"]);
+  const billBreakdown = isRecord(data?.billBreakdown) ? data.billBreakdown : null;
+  const discount = billBreakdown ? text(billBreakdown, ["discount", "couponDiscount", "discountAmount"]) : null;
+  const total = text(data, ["cartTotalAmount", "totalAmount", "total", "grandTotal", "payable"]);
+
+  const details = [
+    message ? escapeMarkdown(message) : "The coupon was applied successfully.",
+    discount ? `**Discount:** ${escapeMarkdown(discount)}` : null,
+    total ? `**Cart total:** ${escapeMarkdown(total)}` : null,
+  ].filter(Boolean).join("\n\n");
+
+  return new EmbedBuilder()
+    .setColor(0x1da41a)
+    .setAuthor({ name: "Swiggy Instamart" })
+    .setTitle(`✅ Coupon Applied: ${escapeMarkdown(couponCode)}`)
+    .setDescription(details.slice(0, 4000))
+    .setFooter({ text: "The coupon is applied to your current cart" })
     .setTimestamp();
 }
 
